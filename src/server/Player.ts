@@ -1,5 +1,5 @@
 import {Socket} from "socket.io";
-import {CharacterState} from "../common/CharacterState";
+import {CharacterState} from "../common/Game/CharacterState";
 
 
 class Player {
