@@ -3,7 +3,7 @@ import express, {Request, Response} from 'express';
 import sio, {Socket} from 'socket.io';
 
 import app_config from './config/app_config';
-import RoomManager from "./server/RoomManager";
+import {RoomManager} from "./server/RoomManager";
 
 const app = express();
 app.use(express.json());

@@ -1,8 +1,10 @@
 import {Application, Request, Response} from 'express';
-import Room from './Room';
+import {Room} from './Room';
 import {makeFailureResponse, makeSuccessResponse} from "./JsonResponseHelper";
+import {Player} from "./Player";
 
-export default class RoomManager {
+
+export class RoomManager {
     room: Array<Room>;
 
     constructor(app: Application) {
@@ -31,6 +33,17 @@ export default class RoomManager {
             res.json(response);
         });
 
-        // TODO Add join
+        app.post('/join', (req: Request, res: Response) => {
+            const data = req.body;
+            const room_idx = this.room.findIndex(r => r.name === data.room.name);
+
+            if(!this.room[room_idx].players.find(p => p.name === data.name)) {
+                const newPlayer = new Player(data.name);
+                this.room[room_idx].addPlayer(newPlayer);
+            }
+
+            const response = makeSuccessResponse('Successfully entered the room', this.room[room_idx].serializeState());
+            res.json(response);
+        });
     }
 }
