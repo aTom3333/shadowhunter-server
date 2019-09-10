@@ -11,4 +11,8 @@ export class Player {
         this.name = name;
         this.sockets = [];
     }
+
+    addSocket(socket: Socket) {
+        this.sockets.push(socket);
+    }
 }

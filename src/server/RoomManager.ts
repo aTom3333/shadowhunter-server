@@ -2,14 +2,17 @@ import {Application, Request, Response} from 'express';
 import {Room} from './Room';
 import {makeFailureResponse, makeSuccessResponse} from "./JsonResponseHelper";
 import {Player} from "./Player";
+import {Server, Socket} from "socket.io";
 
 
 export class RoomManager {
     room: Array<Room>;
+    io: Server;
 
-    constructor(app: Application) {
+    constructor(app: Application, io: Server) {
         this.room = [];
         this.registerApi(app);
+        this.io = io;
     }
 
     private registerApi(app: Application) {
@@ -26,7 +29,7 @@ export class RoomManager {
                 return;
             }
 
-            const newRoom = new Room(data.name);
+            const newRoom = new Room(data.name, this.io);
             this.room.push(newRoom);
 
             const response = makeSuccessResponse('Room created successfully', newRoom.serialize());
@@ -45,5 +48,11 @@ export class RoomManager {
             const response = makeSuccessResponse('Successfully entered the room', this.room[room_idx].serializeState());
             res.json(response);
         });
+    }
+
+    public addToRoom(room: any, name: string, socket: Socket) {
+        // TODO Error handling
+        const enteredRoom = this.room.find(r => r.name === room.name);
+        enteredRoom.enters(name, socket);
     }
 }

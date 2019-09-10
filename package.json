@@ -7,7 +7,7 @@
     "test": "echo \"Error: no test specified\" && exit 1",
     "build": "tsc",
     "watch": "tsc -w",
-    "start": "node dist/app.js",
+    "start": "node $NODE_DEBUG_OPTION dist/app.js",
     "rerun": "npm run build && npm start"
   },
   "repository": {
