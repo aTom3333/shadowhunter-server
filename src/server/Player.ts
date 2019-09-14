@@ -1,5 +1,7 @@
 import {Socket} from "socket.io";
 import {CharacterState} from "../common/Game/CharacterState";
+import {ServerVictoryCondition} from "./Data/VictoryConditions";
+import {Room} from "./Room";
 
 
 export class Player {
@@ -16,6 +18,10 @@ export class Player {
         this.sockets.push(socket);
     }
 
+    hasWon(room: Room) {
+        return (<ServerVictoryCondition>this.character.identity.victoryCondition).isFulfilled(room, this);
+    }
+
     /**
      * Ask the player to make a choice from a collection of possibilities
      * @param title The prompt given to the user
@@ -23,6 +29,7 @@ export class Player {
      * @param type The type as string, defaults to "generic"
      * @param tries Number of try to connect to the player, each try will be separated by 1sec, default 120 (2 minutes), set to -1 for infinite tries
      */
+    // TODO Differentiate needed and not needed questions
     async choose<T>(title: string, choices: Array<T>, type: string = 'generic', tries: number = 120): Promise<T> {
         return new Promise<T>((resolve, reject) => {
             let answerReceived = false;
@@ -65,5 +72,21 @@ export class Player {
             connectionFunction();
             setTimeout(timeoutFunction, 1000, tries, timeoutFunction);
         });
+    }
+
+
+    async askYesNo(question: string, tries: number = 120): Promise<boolean> {
+        const response = await this.choose(question, ['Oui', 'Non'], 'generic', tries);
+        return response === 'Oui';
+    }
+
+
+    async choosePlayer(title: string, players: Array<Player>, tries: number = 120): Promise<Player> {
+        const playerName = await this.choose(title, players.map(p => p.name), 'player', tries);
+        return players.find(p => p.name === playerName);
+    }
+
+    emit(event: string, data: any) {
+        this.sockets.forEach(s => s.emit(event, data));
     }
 }
