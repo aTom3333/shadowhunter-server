@@ -28,6 +28,7 @@ export class Room {
     constructor(name: string, io: Server) {
         this.name = name;
         this.players = [];
+        this.board = null;
         this.io = io;
     }
 
@@ -55,11 +56,21 @@ export class Room {
         return this.io.in(this.name);
     }
 
+    gameStarted(): boolean {
+        return this.board !== null;
+    }
+
     enters(name: string, socket: Socket) {
         const player_id = this.players.findIndex(p => p.name === name);
         this.players[player_id].addSocket(socket);
         socket.join(this.name);
         this.getRoomNamespace().emit('update:playerjoined', { name });
+        if(!this.gameStarted())
+            socket.on('request:startgame', data => {
+                this.startGame();
+            });
+
+        socket.emit('response:roomjoined', { name, room: this.serialize() });
         this.updateTS();
     }
 
@@ -132,9 +143,14 @@ export class Room {
     }
 
     startGame() {
-        if(this.board === null) {
+        this.players.forEach(p => {
+            p.sockets.forEach(s => {
+                s.removeAllListeners('request:startgame');
+            })
+        });
+
+        if(!this.gameStarted()) {
             const charas = shuffleArray(this.generateComposition(false)); // TODO Leave control to the players
-            console.log(charas);
             this.players.forEach((p, i) => p.character = new CharacterState(i, charas[i]));
             this.board = new Board(this.players.map(p => p.character));
 

@@ -16,6 +16,9 @@ export class Player {
 
     addSocket(socket: Socket) {
         this.sockets.push(socket);
+        if(this.character) {
+            socket.emit('update:ownidentity', this.character);
+        }
     }
 
     hasWon(room: Room) {
