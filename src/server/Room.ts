@@ -3,7 +3,12 @@ import {Player} from "./Player";
 import {Namespace, Server, Socket} from "socket.io";
 import {Character, Faction} from "../common/Game/Character";
 import {characters} from "./Data/Characters";
-import {CharacterState} from "../common/Game/CharacterState";
+import {CharacterState, Location} from "../common/Game/CharacterState";
+import {AfterAttackData, BeforeAttackData, Listeners, TurnListener, TurnManager} from "./TurnManager";
+import {ServerPower} from "./Data/Powers";
+import {ServerEquipment} from "./Data/Cards";
+import {AddDices, Dice4, Dice6, SubtractDices} from "../common/Event/DiceResult";
+import {locations} from "./Data/Locations";
 
 
 function randomInt(low: number, high: number): number {
@@ -74,12 +79,58 @@ export class Room {
         this.updateTS();
     }
 
-    d6(): number {
-        // TODO Random
-        const value = 1;
-        this.getRoomNamespace().emit('dice:d6', { value });
+    private throwDice6(): Dice6 {
+        const value = randomInt(1, 7);
+        return {
+            value, finalValue() {
+                return this.value;
+            }
+        };
+    }
+
+    private throwDice4(): Dice4 {
+        const value = randomInt(1, 5);
+        return {
+            value, finalValue() {
+                return this.value;
+            }
+        };
+    }
+
+    d6(): Dice6 {
+        const result = this.throwDice6();
+        this.getRoomNamespace().emit('dice:d6', result);
         this.updateTS();
-        return 1;
+        return result;
+    }
+
+    d4(): Dice4 {
+        const result = this.throwDice4();
+        this.getRoomNamespace().emit('dice:d4', result);
+        this.updateTS();
+        return result;
+    }
+
+    addDices(): AddDices {
+        const result = {
+            d4: this.throwDice4(),
+            d6: this.throwDice6(),
+            finalValue() { return this.d4.value + this.d6.value; }
+        };
+        this.getRoomNamespace().emit('dice:add', result);
+        this.updateTS();
+        return result;
+    }
+
+    subDices(): SubtractDices {
+        const result = {
+            d4: this.throwDice4(),
+            d6: this.throwDice6(),
+            finalValue() { return Math.abs(this.d4.value - this.d6.value); }
+        };
+        this.getRoomNamespace().emit('dice:sub', result);
+        this.updateTS();
+        return result;
     }
 
     applyDamage(target: Player, damage: number) {
@@ -152,12 +203,66 @@ export class Room {
         if(!this.gameStarted()) {
             const charas = shuffleArray(this.generateComposition(false)); // TODO Leave control to the players
             this.players.forEach((p, i) => p.character = new CharacterState(i, charas[i]));
-            this.board = new Board(this.players.map(p => p.character));
+
+            this.board = new Board(this.players.map(p => p.character), shuffleArray(locations));
 
             this.getRoomNamespace().emit('update:gamestarted', this.serializeState());
 
             this.players.forEach(p => p.emit('update:ownidentity', p.character));
         }
         this.updateTS();
+    }
+
+    async playTurn(player: Player) {
+        const turnManager = new TurnManager(this, player);
+        await turnManager.executeTurn();
+    }
+
+    isGameOver(): boolean {
+        return this.players.filter(p => p.character).map(p => p.hasWon(this)).reduce((a, b) => a || b, false);
+    }
+
+    async invokeListener<T>(data: T, currentPlayer: Player, listenerGetter: Function): Promise<T> {
+        for(const p of this.players.filter(p => p.character)) {
+            // Invoke power callbacks
+            for(const l of listenerGetter((<ServerPower>p.character.identity.power).listeners)) {
+                data = await l.call(data, this, currentPlayer, p);
+            }
+
+            // Invoke equipment callbacks
+            for(const e of p.character.equipment) {
+                for(const l of listenerGetter((<ServerEquipment>e).listeners)) {
+                    data = await l.call(data, this, currentPlayer, p);
+                }
+            }
+        }
+
+        return data;
+    }
+
+    areNextTo(player1: Player, player2: Player): boolean {
+        const index1 = this.board.locations.findIndex(l => l === player1.character.location);
+        const index2 = this.board.locations.findIndex(l => l === player2.character.location);
+        return Math.floor(index1/2) === Math.floor(index2/2);
+    }
+
+    async play() {
+        while(!this.isGameOver()) {
+            // TODO implement
+        }
+    }
+
+    async attackPlayer(attacker: Player, target: Player, damage: number, type: string) {
+        let data: any = new BeforeAttackData(target, type, damage, 0);
+
+        data = await this.invokeListener(data, attacker, (l: Listeners) => l.beforeAttack);
+        let finalDamage = (<BeforeAttackData>data).damage !== 0 ? (<BeforeAttackData>data).damage + (<BeforeAttackData>data).modifier : 0;
+        if(finalDamage < 0)
+            finalDamage = 0;
+        this.applyDamage(target, finalDamage);
+
+        data = new AfterAttackData(target, type, damage);
+
+        data = await this.invokeListener(data, attacker, (l: Listeners) => l.afterAttack);
     }
 }

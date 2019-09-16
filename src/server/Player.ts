@@ -2,6 +2,19 @@ import {Socket} from "socket.io";
 import {CharacterState} from "../common/Game/CharacterState";
 import {ServerVictoryCondition} from "./Data/VictoryConditions";
 import {Room} from "./Room";
+import {
+    ActionData, AfterAttackData, AfterAttackDiceData, AfterAttackTargetSelectionData,
+    AfterMoveData,
+    AfterMoveDiceData, BeforeAttackData, BeforeAttackDiceData,
+    BeforeAttackTargetSelectionData,
+    BeforeMoveData, BeforeMoveDiceData,
+    TurnListener
+} from "./TurnManager";
+import {ServerEquipment} from "./Data/Cards";
+
+
+
+
 
 
 export class Player {
@@ -91,5 +104,9 @@ export class Player {
 
     emit(event: string, data: any) {
         this.sockets.forEach(s => s.emit(event, data));
+    }
+
+    equips(equipment: ServerEquipment) {
+        this.character.equipment.push(equipment);
     }
 }
