@@ -1,5 +1,4 @@
 import {Faction, VictoryCondition} from "../../common/Game/Character";
-import {Board} from "../../common/Game/Board";
 import {CharacterState} from "../../common/Game/CharacterState";
 import {Player} from "../Player";
 import {Room} from "../Room";
@@ -7,19 +6,20 @@ import {Room} from "../Room";
 
 export interface ServerVictoryCondition extends VictoryCondition {
     description: string;
+
     isFulfilled(room: Room, self: Player): boolean;
 }
 
 // TODO Gérer les boucles infinies:
 // Au moins Agnès et Allie ont une condition de victoire dépendant des conditions de victoire d'autres joueurs
 // Il faut faire attention à ne pas boucler indéfiniment
-export const victoryConditions : {
+export const victoryConditions: {
     agnes: ServerVictoryCondition;
     allie: ServerVictoryCondition;
     bob: ServerVictoryCondition;
-    //bryan: ServerVictoryCondition;
+    bryan: ServerVictoryCondition;
     catherine: ServerVictoryCondition;
-    //charles: ServerVictoryCondition;
+    charles: ServerVictoryCondition;
     daniel: ServerVictoryCondition;
     david: ServerVictoryCondition;
 
@@ -33,7 +33,7 @@ export const victoryConditions : {
             const state = self.character;
             const self_idx = board.states.findIndex(c => c.id === state.id);
             let target: CharacterState;
-            if(state.powerUsed) {
+            if (state.powerUsed) {
                 // Le joueur à gauche gagne
                 target = board.states[board.nextOf(self_idx)];
             } else {
@@ -51,13 +51,13 @@ export const victoryConditions : {
         isFulfilled(room: Room, self: Player) {
             const board = room.board;
             const state = self.character;
-            if(state.dead)
+            if (state.dead)
                 return false;
             // Si Allie est vivante, elle gagne si la partie est finie, càd au moins un personnage a gagné
             let gameOver = false;
             room.players.every(p => {
-                if(p.character.id !== state.id) {
-                    if(p.hasWon(room)) {
+                if (p.character.id !== state.id) {
+                    if (p.hasWon(room)) {
                         gameOver = true;
                         return false;
                     }
@@ -75,50 +75,63 @@ export const victoryConditions : {
             return state.equipment.length >= 5;
         }
     },
-    //bryan
+    bryan: {
+        description: "Tuer un personnage de 13 Points de Vie ou plus OU être dans le sanctuaire ancien à la fin du jeu.",
+        isFulfilled(room: Room, self: Player): boolean {
+            // todo : bryan
+            return false;
+        }
+    },
     catherine: {
         description: "Être la première à mourir OU être l'un des deux seuls personnages en vie.",
         isFulfilled(room: Room, self: Player) {
             const board = room.board;
             const state = self.character;
             // Première à mourir (morte et seul mort de la partie => 1 mort)
-            if(state.dead && board.states.filter(c => c.dead).length === 1)
+            if (state.dead && board.states.filter(c => c.dead).length === 1)
                 return true;
             // Vivante avec maximum une autre personne
-            if(!state.dead && board.states.filter(c => !c.dead).length <= 2)
+            if (!state.dead && board.states.filter(c => !c.dead).length <= 2)
                 return true;
             return false;
         }
     },
-    //charles
+    charles: {
+        description: "Tuer un autre personnage par une attaque alors qu'il y a déjà eu 3 morts ou plus.",
+        isFulfilled(room: Room, self: Player): boolean {
+            //todo charles
+            return false;
+        }
+    },
     daniel: {
         description: "Être le premier à mourir OU être en vie quand tous les personnages Shadow sont morts.",
         isFulfilled(room: Room, self: Player) {
             const board = room.board;
             const state = self.character;
             // Premier à mourir
-            if(state.dead && board.states.filter(c => c.dead).length === 1)
+            if (state.dead && board.states.filter(c => c.dead).length === 1)
                 return true;
             // Vivant et tous les shadow morts
-            if(!state.dead && board.states.filter(c => !c.dead && c.identity.faction === Faction.Shadow).length === 0)
+            if (!state.dead && board.states.filter(c => !c.dead && c.identity.faction === Faction.Shadow).length === 0)
                 return true;
             return false;
         }
     },
     david: {
-        description: "Avoir au minimum 3 de ces cartes : Crucifix en Argent, Amulette, Lance de Longinus, Toge Sainte",
+        description: "Avoir au minimum 3 de ces cartes : Crucifix en Argent, Amulette, Lance de Longinus, Toge Sainte.",
         isFulfilled(room: Room, self: Player) {
             const board = room.board;
             const state = self.character;
             let ownedWanted = 0;
-            if(state.equipment.find(e => e /* TODO detect the wanted equipment */))
+            if (state.equipment.find(e => e /* TODO detect the wanted equipment */))
                 ownedWanted += 1;
             return ownedWanted >= 3;
         }
     },
 
+
     hunter: {
-        description: "Tous les personnages Shadow sont morts",
+        description: "Tous les personnages Shadow sont morts.",
         isFulfilled(room: Room, self: Player) {
             const board = room.board;
             const state = self.character;
@@ -126,7 +139,7 @@ export const victoryConditions : {
         }
     },
     shadow: {
-        description: "Tous les personnages Hunter sont morts OU tous les personnages neutres sont morts",
+        description: "Tous les personnages Hunter sont morts OU tous les personnages neutres sont morts.",
         isFulfilled(room: Room, self: Player) {
             const board = room.board;
             const state = self.character;
