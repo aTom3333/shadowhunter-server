@@ -238,7 +238,13 @@ export class TurnManager {
         if(this.room.isGameOver())
             return;
 
-        data = new BeforeMoveData(locations.filter(l => l.numbers.includes(data.result.finalValue())));
+        let locations: Array<Location>;
+        if(data.result.finalValue() === 7)
+            locations = locations.filter(l => l !== this.currentPlayer.character.location);
+        else
+            locations = locations.filter(l => l.numbers.includes(data.result.finalValue()));
+
+        data = new BeforeMoveData(locations);
 
         data = await this.room.invokeListener(data, this.currentPlayer, (l: Listeners) => l.beforeMove);
         if(this.room.isGameOver())

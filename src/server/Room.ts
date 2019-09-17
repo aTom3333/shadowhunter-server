@@ -3,19 +3,19 @@ import {Player} from "./Player";
 import {Namespace, Server, Socket} from "socket.io";
 import {Character, Faction} from "../common/Game/Character";
 import {characters} from "./Data/Characters";
-import {CharacterState, Location} from "../common/Game/CharacterState";
-import {AfterAttackData, BeforeAttackData, Listeners, TurnListener, TurnManager} from "./TurnManager";
+import {CardColor, CharacterState} from "../common/Game/CharacterState";
+import {AfterAttackData, BeforeAttackData, Listeners, TurnManager} from "./TurnManager";
 import {ServerPower} from "./Data/Powers";
-import {ServerEquipment} from "./Data/Cards";
+import {ServerDeck, ServerEquipment} from "./Data/Cards";
 import {AddDices, Dice4, Dice6, SubtractDices} from "../common/Event/DiceResult";
 import {locations} from "./Data/Locations";
 
 
-function randomInt(low: number, high: number): number {
+export function randomInt(low: number, high: number): number {
     return Math.floor(Math.random() * (high - low) + low)
 }
 
-function shuffleArray<T>(array: Array<T>): Array<T> {
+export function shuffleArray<T>(array: Array<T>): Array<T> {
     for (let i = array.length - 1; i > 0; i--) {
         const j = Math.floor(Math.random() * (i + 1));
         [array[i], array[j]] = [array[j], array[i]];
@@ -204,11 +204,14 @@ export class Room {
             const charas = shuffleArray(this.generateComposition(false)); // TODO Leave control to the players
             this.players.forEach((p, i) => p.character = new CharacterState(i, charas[i]));
 
-            this.board = new Board(this.players.map(p => p.character), shuffleArray(locations));
+            this.board = new Board(this.players.map(p => p.character), shuffleArray(locations),
+                                    ServerDeck.makeDeck(CardColor.White), ServerDeck.makeDeck(CardColor.Black), ServerDeck.makeDeck(CardColor.Green));
 
             this.getRoomNamespace().emit('update:gamestarted', this.serializeState());
 
             this.players.forEach(p => p.emit('update:ownidentity', p.character));
+
+            this.play();
         }
         this.updateTS();
     }
@@ -247,8 +250,16 @@ export class Room {
     }
 
     async play() {
-        while(!this.isGameOver()) {
-            // TODO implement
+        try {
+            while (!this.isGameOver()) {
+                const currentPlayer = this.players.find(p => p.character.id === this.board.currentTurn.character.id);
+                await this.playTurn(currentPlayer);
+                this.board.nextTurn();
+            }
+            this.showEnd();
+        }
+        catch (e) {
+            this.getRoomNamespace().emit('error', e);
         }
     }
 
@@ -264,5 +275,26 @@ export class Room {
         data = new AfterAttackData(target, type, damage);
 
         data = await this.invokeListener(data, attacker, (l: Listeners) => l.afterAttack);
+    }
+
+    async drawCard(color: CardColor, player: Player) {
+        let deck: ServerDeck;
+        switch (color) {
+            case CardColor.White:
+                deck = <ServerDeck>this.board.whiteDeck;
+                break;
+            case CardColor.Black:
+                deck = <ServerDeck>this.board.blackDeck;
+                break;
+            case CardColor.Green:
+                deck = <ServerDeck>this.board.greenDeck;
+                break;
+        }
+        const card = deck.drawCard(this, player);
+        await card.apply(player, this);
+    }
+
+    private showEnd() {
+        // TODO Implement
     }
 }
