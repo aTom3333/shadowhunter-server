@@ -23,6 +23,11 @@ export class RoomManager {
 
         app.post('/create', (req: Request, res: Response) => {
             const data = req.body;
+            if(typeof data.name !== 'string' || !data.name) {
+                const response = makeFailureResponse('The room name must be a non empty string');
+                res.json(response);
+                return;
+            }
             if(this.room.find(r => r.name === data.name)) { // The room already exists
                 const response = makeFailureResponse('A room with this name already exists');
                 res.json(response);
@@ -39,6 +44,12 @@ export class RoomManager {
         app.post('/join', (req: Request, res: Response) => {
             const data = req.body;
             const room_idx = this.room.findIndex(r => r.name === data.room.name);
+
+            if(room_idx === -1) {
+                const response = makeFailureResponse('The Room doesn\'t exist');
+                res.json(response);
+                return;
+            }
 
             if(!this.room[room_idx].players.find(p => p.name === data.name)) {
                 const newPlayer = new Player(data.name);

@@ -9,6 +9,7 @@ import {ServerPower} from "./Data/Powers";
 import {ServerDeck, ServerEquipment} from "./Data/Cards";
 import {AddDices, Dice4, Dice6, SubtractDices} from "../common/Event/DiceResult";
 import {locations} from "./Data/Locations";
+import {RoomState, RoomSummary} from "../common/Protocol/RoomInterface";
 
 
 export function randomInt(low: number, high: number): number {
@@ -41,8 +42,12 @@ export class Room {
         this.lastAction = new Date(Date.now());
     }
 
-    serialize() {   // TODO Return a common protocol Room when defined
-        return {name: this.name};
+    serialize(): RoomSummary {
+        return {
+            name: this.name,
+            state: this.board ? this.isGameOver() ? RoomState.Over : RoomState.Playing : RoomState.Setup,
+            noplayers: this.players.length
+        };
     }
 
     serializeState() {
