@@ -34,6 +34,13 @@ export class Player {
         }
     }
 
+    removeSocket(socket: Socket, room: Room) {
+        const socket_idx = this.sockets.indexOf(socket);
+        this.sockets.splice(socket_idx, 1);
+        if(this.sockets.length === 0 && !this.character)
+            room.leaves(this);
+    }
+
     hasWon(room: Room) {
         return (<ServerVictoryCondition>this.character.identity.victoryCondition).isFulfilled(room, this);
     }
