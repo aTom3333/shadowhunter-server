@@ -32,7 +32,8 @@ export const characters: Array<Character> = [
         Faction.Neutral,
         8,
         powers.caprice,
-        victoryConditions.agnes
+        victoryConditions.agnes,
+        true
     ),
     new Character(
         "Allie",
@@ -53,21 +54,24 @@ export const characters: Array<Character> = [
         Faction.Neutral,
         10,
         powers.braquageExtension,
-        victoryConditions.bob
+        victoryConditions.bob,
+        true
     ),
     new Character(
         "Bryan",
         Faction.Neutral,
         10,
         powers.ohMyGod,
-        victoryConditions.bryan
+        victoryConditions.bryan,
+        true
     ),
     new Character(
         "Catherine",
         Faction.Neutral,
         11,
         powers.stigmates,
-        victoryConditions.catherine
+        victoryConditions.catherine,
+        true
     ),
     new Character(
         "Charles",
@@ -88,14 +92,16 @@ export const characters: Array<Character> = [
         Faction.Neutral,
         13,
         powers.pilleurDeTombes,
-        victoryConditions.david
+        victoryConditions.david,
+        true
     ),
     new Character(
         "Ellen",
         Faction.Hunter,
         10,
         powers.exorcisme,
-        victoryConditions.hunter
+        victoryConditions.hunter,
+        true
     ),
     new Character(
         "Emi",
@@ -116,7 +122,8 @@ export const characters: Array<Character> = [
         Faction.Hunter,
         12,
         powers.soinsParticuliers,
-        victoryConditions.hunter
+        victoryConditions.hunter,
+        true
     ),
     new Character(
         "Georges",
@@ -130,14 +137,16 @@ export const characters: Array<Character> = [
         Faction.Hunter,
         14,
         powers.bouclierFantome,
-        victoryConditions.hunter
+        victoryConditions.hunter,
+        true
     ),
     new Character(
         "Liche",
         Faction.Shadow,
         14,
         powers.necromancie,
-        victoryConditions.shadow
+        victoryConditions.shadow,
+        true
     ),
     new Character(
         "Loup-garou",
@@ -151,7 +160,8 @@ export const characters: Array<Character> = [
         Faction.Shadow,
         11,
         powers.rayonDOutremonde,
-        victoryConditions.shadow
+        victoryConditions.shadow,
+        true
     ),
     new Character(
         "Métamorphe",
@@ -165,7 +175,8 @@ export const characters: Array<Character> = [
         Faction.Shadow,
         13,
         powers.chantDeGuerre,
-        victoryConditions.shadow
+        victoryConditions.shadow,
+        true
     ),
     new Character(
         "Vampire",

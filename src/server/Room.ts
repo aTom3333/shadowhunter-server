@@ -76,10 +76,12 @@ export class Room {
             socket.emit('error', new Error('Can\'t bind socket with player: no player named "'+name+'"'));
             return;
         }
+        const player = this.players[player_id];
 
-        this.players[player_id].addSocket(socket);
+        player.addSocket(socket);
         socket.join(this.name);
-        this.getRoomNamespace().emit('update:playerjoined', { name });
+
+        this.getRoomNamespace().emit('update:playerjoined', { name, character: this.players[player_id].character });
         if(!this.gameStarted())
             socket.on('request:startgame', data => {
                 this.startGame();
@@ -88,7 +90,7 @@ export class Room {
         socket.emit('response:roomjoined', { name, room: this.serialize() });
 
         socket.on('disconnect', () => {
-            this.players[player_id].removeSocket(socket, this);
+            player.removeSocket(socket, this);
         });
 
         this.updateTS();
@@ -99,7 +101,7 @@ export class Room {
         if(player_idx === -1)
             return;
         this.players.splice(player_idx, 1);
-        this.getRoomNamespace().emit('update:playerleave', { name: player.name });
+        this.getRoomNamespace().emit('update:playerleave', { name: player.name, character: player.character });
         this.updateTS();
     }
 
