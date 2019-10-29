@@ -3,13 +3,14 @@ import {Player} from "./Player";
 import {Namespace, Server, Socket} from "socket.io";
 import {Character, Faction} from "../common/Game/Character";
 import {characters} from "./Data/Characters";
-import {CardColor, CharacterState} from "../common/Game/CharacterState";
+import {CardColor, CharacterState, PawnColor} from "../common/Game/CharacterState";
 import {AfterAttackData, BeforeAttackData, Listeners, TurnManager} from "./TurnManager";
 import {ServerPower} from "./Data/Powers";
 import {ServerDeck, ServerEquipment} from "./Data/Cards";
 import {AddDices, Dice4, Dice6, SubtractDices} from "../common/Event/DiceResult";
 import {locations} from "./Data/Locations";
-import {RoomState, RoomSummary} from "../common/Protocol/RoomInterface";
+import {FullRoom, RoomState, RoomSummary} from "../common/Protocol/RoomInterface";
+import {Dice, Response, Update} from "../common/Protocol/SocketIOEvents";
 
 
 export function randomInt(low: number, high: number): number {
@@ -50,11 +51,11 @@ export class Room {
         };
     }
 
-    serializeState() {
+    serializeState(): FullRoom {
         return {
             board: this.board,
             players: this.players.map(p => { return { id: p.character?p.character.id:undefined, name: p.name }; })
-        }; // TODO Return a common protocol that describe the whole game
+        };
     }
 
     addPlayer(newPlayer: Player) {
@@ -81,13 +82,13 @@ export class Room {
         player.addSocket(socket);
         socket.join(this.name);
 
-        this.getRoomNamespace().emit('update:playerjoined', { name, character: this.players[player_id].character });
+        this.getRoomNamespace().emit(Update.PlayerJoined.stub, Update.PlayerJoined({ name, character: this.players[player_id].character }));
         if(!this.gameStarted())
             socket.on('request:startgame', data => {
                 this.startGame();
             });
 
-        socket.emit('response:roomjoined', { name, room: this.serialize() });
+        socket.emit(Response.RoomJoined.stub, Response.RoomJoined({ name, room: this.serialize() }));
 
         socket.on('disconnect', () => {
             player.removeSocket(socket, this);
@@ -101,7 +102,7 @@ export class Room {
         if(player_idx === -1)
             return;
         this.players.splice(player_idx, 1);
-        this.getRoomNamespace().emit('update:playerleave', { name: player.name, character: player.character });
+        this.getRoomNamespace().emit(Update.PlayerLeft.stub, Update.PlayerLeft({ name: player.name, character: player.character }));
         this.updateTS();
     }
 
@@ -125,14 +126,14 @@ export class Room {
 
     d6(): Dice6 {
         const result = this.throwDice6();
-        this.getRoomNamespace().emit('dice:d6', result);
+        this.getRoomNamespace().emit(Dice.D6.stub, Dice.D6(result));
         this.updateTS();
         return result;
     }
 
     d4(): Dice4 {
         const result = this.throwDice4();
-        this.getRoomNamespace().emit('dice:d4', result);
+        this.getRoomNamespace().emit(Dice.D4.stub, Dice.D4(result));
         this.updateTS();
         return result;
     }
@@ -143,7 +144,7 @@ export class Room {
             d6: this.throwDice6(),
             finalValue() { return this.d4.value + this.d6.value; }
         };
-        this.getRoomNamespace().emit('dice:add', result);
+        this.getRoomNamespace().emit(Dice.Add.stub, Dice.Add(result));
         this.updateTS();
         return result;
     }
@@ -154,7 +155,7 @@ export class Room {
             d6: this.throwDice6(),
             finalValue() { return Math.abs(this.d4.value - this.d6.value); }
         };
-        this.getRoomNamespace().emit('dice:sub', result);
+        this.getRoomNamespace().emit(Dice.Sub.stub, Dice.Sub(result));
         this.updateTS();
         return result;
     }
@@ -228,14 +229,14 @@ export class Room {
 
         if(!this.gameStarted()) {
             const charas = shuffleArray(this.generateComposition(false)); // TODO Leave control to the players
-            this.players.forEach((p, i) => p.character = new CharacterState(i, charas[i]));
+            this.players.forEach((p, i) => p.character = new CharacterState(i, charas[i], i));
 
             this.board = new Board(this.players.map(p => p.character), shuffleArray(locations),
                                     ServerDeck.makeDeck(CardColor.White), ServerDeck.makeDeck(CardColor.Black), ServerDeck.makeDeck(CardColor.Green));
 
-            this.getRoomNamespace().emit('update:gamestarted', this.serializeState());
+            this.getRoomNamespace().emit(Update.GameStarted.stub, Update.GameStarted(this.serializeState()));
 
-            this.players.forEach(p => p.emit('update:ownidentity', p.character));
+            this.players.forEach(p => p.emit(Update.OwnIdentity.stub, Update.OwnIdentity(p.character)));
 
             this.play();
         }

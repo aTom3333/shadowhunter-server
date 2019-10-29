@@ -11,6 +11,7 @@ import {
     TurnListener
 } from "./TurnManager";
 import {ServerEquipment} from "./Data/Cards";
+import {Request, Response, Update} from "../common/Protocol/SocketIOEvents";
 
 
 
@@ -30,7 +31,7 @@ export class Player {
     addSocket(socket: Socket) {
         this.sockets.push(socket);
         if(this.character) {
-            socket.emit('update:ownidentity', this.character);
+            socket.emit(Update.OwnIdentity.stub, Update.OwnIdentity(this.character));
         }
     }
 
@@ -71,11 +72,11 @@ export class Player {
                                 resolve(data);
                             }
                         });
-                        s.emit('request:choice', {
+                        s.emit(Request.Choice.stub, Request.Choice({
                             title,
                             type,
                             choices
-                        });
+                        }));
                         socketTried.push(s);
                     }
                 });
@@ -84,7 +85,7 @@ export class Player {
                 if(answerReceived)
                     return;
                 if(amount === 0) {
-                    socketTried.forEach((s: Socket) => s.removeAllListeners('response:choice'));
+                    socketTried.forEach((s: Socket) => s.removeAllListeners(Response.Choice.stub));
                     reject(new Error("Timeout while trying to communicate with player "+this));
                 } else {
                     connectionFunction();
