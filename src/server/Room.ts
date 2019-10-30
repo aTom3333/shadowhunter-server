@@ -106,42 +106,43 @@ export class Room {
         this.updateTS();
     }
 
-    private throwDice6(): Dice6 {
+    private throwDice6(player: Player): Dice6 {
         const value = randomInt(1, 7);
         return {
             value, finalValue() {
                 return this.value;
-            }
+            }, player: player.serialize()
         };
     }
 
-    private throwDice4(): Dice4 {
+    private throwDice4(player: Player): Dice4 {
         const value = randomInt(1, 5);
         return {
             value, finalValue() {
                 return this.value;
-            }
+            }, player: player.serialize()
         };
     }
 
-    d6(): Dice6 {
-        const result = this.throwDice6();
+    d6(player: Player): Dice6 {
+        const result = this.throwDice6(player);
         this.getRoomNamespace().emit(Dice.D6.stub, Dice.D6(result));
         this.updateTS();
         return result;
     }
 
-    d4(): Dice4 {
-        const result = this.throwDice4();
+    d4(player: Player): Dice4 {
+        const result = this.throwDice4(player);
         this.getRoomNamespace().emit(Dice.D4.stub, Dice.D4(result));
         this.updateTS();
         return result;
     }
 
-    addDices(): AddDices {
+    addDices(player: Player): AddDices {
         const result = {
-            d4: this.throwDice4(),
-            d6: this.throwDice6(),
+            d4: this.throwDice4(player),
+            d6: this.throwDice6(player),
+            player: player.serialize(),
             finalValue() { return this.d4.value + this.d6.value; }
         };
         this.getRoomNamespace().emit(Dice.Add.stub, Dice.Add(result));
@@ -149,10 +150,11 @@ export class Room {
         return result;
     }
 
-    subDices(): SubtractDices {
+    subDices(player: Player): SubtractDices {
         const result = {
-            d4: this.throwDice4(),
-            d6: this.throwDice6(),
+            d4: this.throwDice4(player),
+            d6: this.throwDice6(player),
+            player: player.serialize(),
             finalValue() { return Math.abs(this.d4.value - this.d6.value); }
         };
         this.getRoomNamespace().emit(Dice.Sub.stub, Dice.Sub(result));
@@ -238,7 +240,7 @@ export class Room {
 
             this.players.forEach(p => p.emit(Update.OwnIdentity.stub, Update.OwnIdentity(p.character)));
 
-            this.play();
+            setTimeout(() => { this.play(); }, 5000);
         }
         this.updateTS();
     }
@@ -286,6 +288,12 @@ export class Room {
             this.showEnd();
         }
         catch (e) {
+            if(e instanceof Error)
+                e = {
+                    name: e.name,
+                    message: e.message,
+                    stack: e.stack
+                };
             this.getRoomNamespace().emit('error', e);
         }
     }

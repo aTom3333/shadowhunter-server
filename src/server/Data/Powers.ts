@@ -54,7 +54,7 @@ export const powers: {
                         // Player alive and not self
                         const targetPlayers = room.players.filter(p => p.character).filter(p => !p.character.dead && p.character.id !== self.character.id);
                         const targetedPlayer = await self.choosePlayer('Sur qui la foudre va-t-elle se déchainer ?', targetPlayers);
-                        const damage = room.d6();
+                        const damage = room.d6(self);
 
                         await room.attackPlayer(self, targetedPlayer, damage.finalValue(), 'thunder');
                     }

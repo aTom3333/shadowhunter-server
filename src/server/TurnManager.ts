@@ -4,6 +4,7 @@ import {Room} from "./Room";
 import {Player} from "./Player";
 import {diceForMove, locations, ServerLocation} from "./Data/Locations";
 import {Location} from "../common/Game/CharacterState";
+import {Update} from "../common/Protocol/SocketIOEvents";
 
 
 export enum TurnState {
@@ -166,49 +167,57 @@ export interface DiceThrower {
 
 export class DiceThrower4 implements DiceThrower {
     room: Room;
+    player: Player;
 
-    constructor(room: Room) {
+    constructor(room: Room, player: Player) {
         this.room = room;
+        this.player = player;
     }
 
     throwDice() {
-        return this.room.d4();
+        return this.room.d4(this.player);
     }
 }
 
 export class DiceThrower6 implements DiceThrower {
     room: Room;
+    player: Player;
 
-    constructor(room: Room) {
+    constructor(room: Room, player: Player) {
         this.room = room;
+        this.player = player;
     }
 
     throwDice() {
-        return this.room.d6();
+        return this.room.d6(this.player);
     }
 }
 
 export class DiceThrowerAdd implements DiceThrower {
     room: Room;
+    player: Player;
 
-    constructor(room: Room) {
+    constructor(room: Room, player: Player) {
         this.room = room;
+        this.player = player;
     }
 
     throwDice() {
-        return this.room.addDices();
+        return this.room.addDices(this.player);
     }
 }
 
 export class DiceThrowerSub implements DiceThrower {
     room: Room;
+    player: Player;
 
-    constructor(room: Room) {
+    constructor(room: Room, player: Player) {
         this.room = room;
+        this.player = player;
     }
 
     throwDice() {
-        return this.room.subDices();
+        return this.room.subDices(this.player);
     }
 }
 
@@ -238,13 +247,13 @@ export class TurnManager {
         if(this.room.isGameOver())
             return;
 
-        let locations: Array<Location>;
+        let locs: Array<Location>;
         if(data.result.finalValue() === 7)
-            locations = locations.filter(l => l !== this.currentPlayer.character.location);
+            locs = locations.filter(l => l !== this.currentPlayer.character.location);
         else
-            locations = locations.filter(l => l.numbers.includes(data.result.finalValue()));
+            locs = locations.filter(l => l.numbers.includes(data.result.finalValue()));
 
-        data = new BeforeMoveData(locations);
+        data = new BeforeMoveData(locs);
 
         data = await this.room.invokeListener(data, this.currentPlayer, (l: Listeners) => l.beforeMove);
         if(this.room.isGameOver())
@@ -263,6 +272,9 @@ export class TurnManager {
                 break;
         }
         this.currentPlayer.character.location = destination; // Move
+
+        this.room.getRoomNamespace().emit(Update.Movement.stub, Update.Movement(this.currentPlayer.serialize()));
+
         (<ServerLocation>destination).apply(this.room, this.currentPlayer); // And apply effect
         if(this.room.isGameOver())
             return;
@@ -294,7 +306,7 @@ export class TurnManager {
         if(this.room.isGameOver())
             return;
 
-        data = new BeforeAttackDiceData(target, new DiceThrowerSub(this.room));
+        data = new BeforeAttackDiceData(target, new DiceThrowerSub(this.room, this.currentPlayer));
 
         data = await this.room.invokeListener(data, this.currentPlayer, (l: Listeners) => l.beforeAttackDice);
         if(this.room.isGameOver())

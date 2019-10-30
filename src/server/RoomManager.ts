@@ -64,6 +64,7 @@ export class RoomManager {
     public addToRoom(room: any, name: string, socket: Socket) {
         // TODO Error handling
         const enteredRoom = this.room.find(r => r.name === room.name);
-        enteredRoom.enters(name, socket);
+        if(enteredRoom)
+            enteredRoom.enters(name, socket);
     }
 }

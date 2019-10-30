@@ -12,6 +12,7 @@ import {
 } from "./TurnManager";
 import {ServerEquipment} from "./Data/Cards";
 import {Request, Response, Update} from "../common/Protocol/SocketIOEvents";
+import {PlayerInterface} from "../common/Protocol/PlayerInterface";
 
 
 
@@ -116,5 +117,12 @@ export class Player {
 
     equips(equipment: ServerEquipment) {
         this.character.equipment.push(equipment);
+    }
+
+    serialize(): PlayerInterface {
+        return {
+            name: this.name,
+            character: this.character
+        };
     }
 }
