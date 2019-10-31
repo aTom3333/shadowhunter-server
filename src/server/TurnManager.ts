@@ -275,7 +275,7 @@ export class TurnManager {
 
         this.room.getRoomNamespace().emit(Update.Movement.stub, Update.Movement(this.currentPlayer.serialize()));
 
-        (<ServerLocation>destination).apply(this.room, this.currentPlayer); // And apply effect
+        await (<ServerLocation>destination).apply(this.room, this.currentPlayer); // And apply effect
         if(this.room.isGameOver())
             return;
 

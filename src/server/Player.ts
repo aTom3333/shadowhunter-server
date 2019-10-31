@@ -52,10 +52,10 @@ export class Player {
      * @param title The prompt given to the user
      * @param choices The possibilities given to the user
      * @param type The type as string, defaults to "generic"
-     * @param tries Number of try to connect to the player, each try will be separated by 1sec, default 120 (2 minutes), set to -1 for infinite tries
+     * @param tries Number of try to connect to the player, each try will be separated by 1sec, set to -1 for infinite tries
      */
     // TODO Differentiate needed and not needed questions
-    async choose<T>(title: string, choices: Array<T>, type: string = 'generic', tries: number = 120): Promise<T> {
+    async choose<T>(title: string, choices: Array<T>, type: string = 'generic', tries: number = -1): Promise<T> {
         return new Promise<T>((resolve, reject) => {
             let answerReceived = false;
             const socketTried: Array<Socket> = [];
@@ -100,13 +100,13 @@ export class Player {
     }
 
 
-    async askYesNo(question: string, tries: number = 120): Promise<boolean> {
+    async askYesNo(question: string, tries: number = -1): Promise<boolean> {
         const response = await this.choose(question, ['Oui', 'Non'], 'generic', tries);
         return response === 'Oui';
     }
 
 
-    async choosePlayer(title: string, players: Array<Player>, tries: number = 120): Promise<Player> {
+    async choosePlayer(title: string, players: Array<Player>, tries: number = -1): Promise<Player> {
         const playerName = await this.choose(title, players.map(p => p.name), 'player', tries);
         return players.find(p => p.name === playerName);
     }

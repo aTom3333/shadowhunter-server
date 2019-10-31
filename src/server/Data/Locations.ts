@@ -22,7 +22,7 @@ export const locations: Array<ServerLocation> = [
         description: "Vous Pouvez piocher une carte Lumière.",
         numbers: [6],
         async apply(room: Room, player: Player) {
-            if(await player.askYesNo("Prendre une carte Lumière ?", -1)) {
+            if(await player.askYesNo("Prendre une carte Lumière ?")) {
                 await room.drawCard(CardColor.White, player);
             }
         }
@@ -33,7 +33,7 @@ export const locations: Array<ServerLocation> = [
         numbers: [4, 5],
         async apply(room: Room, player: Player) {
             const answer = await player.choose("Prendre une carte de quelle pile ?",
-                                                ['Lumière', 'Ténèbres', 'Vision', 'Aucune'], 'generic', -1);
+                                                ['Lumière', 'Ténèbres', 'Vision', 'Aucune'], 'generic');
             switch (answer) {
                 case 'Lumière':
                     await room.drawCard(CardColor.White, player);
@@ -54,7 +54,7 @@ export const locations: Array<ServerLocation> = [
         description: "Vous pouvez piocher une carte vision.",
         numbers: [2, 3],
         async apply(room: Room, player: Player) {
-            if(await player.askYesNo("Prendre une carte Vision ?", -1)) {
+            if(await player.askYesNo("Prendre une carte Vision ?")) {
                 await room.drawCard(CardColor.Green, player);
             }
         }
@@ -64,7 +64,7 @@ export const locations: Array<ServerLocation> = [
         description: "Vous pouvez piocher une carte Ténèbres.",
         numbers: [8],
         async apply(room: Room, player: Player) {
-            if(await player.askYesNo("Prendre une carte Ténèbres ?", -1)) {
+            if(await player.askYesNo("Prendre une carte Ténèbres ?")) {
                 await room.drawCard(CardColor.Black, player);
             }
         }
@@ -76,7 +76,7 @@ export const locations: Array<ServerLocation> = [
         async apply(room: Room, player: Player) {
             const action = await player.choose("Infliger 2 Blessures ou soigner 1 Blessure ?", ['Infliger 2 Blessures', 'Soigner 1 Blessure']);
             const question = (action === 'Infliger 2 Blessures' ? 'Qui blesser ?' : 'Qui soigner ?');
-            const target = await player.choosePlayer(question, room.players.filter(p => p.character && !p.character.dead), -1);
+            const target = await player.choosePlayer(question, room.players.filter(p => p.character && !p.character.dead));
             if(action === 'Infliger 2 Blessures') {
 
                 await room.attackPlayer(player, target, 2, 'hauntedforest');
@@ -99,7 +99,7 @@ export const locations: Array<ServerLocation> = [
             });
             possibilites.push(null);
             if(possibilites.length > 1) {
-                const target = await player.choose("Quel équipement voler ?", possibilites, 'playerequipment', -1);
+                const target = await player.choose("Quel équipement voler ?", possibilites, 'playerequipment');
                 if(target !== null) {
                     // TODO Implement
                     //await room.stealEquipment(target.target, player, target.equipment);
