@@ -17,6 +17,7 @@ export interface ServerEquipment extends ServerCard, Equipment {
 
 export class ServerDeck implements Deck {
     private cards: Array<ServerCard>;
+    private publicDiscard: boolean
     discard: Array<ServerCard>;
 
     get numberLeft() {
@@ -28,7 +29,6 @@ export class ServerDeck implements Deck {
             this.refill(room);
         const card = this.cards[0];
         this.cards.splice(0, 1);
-        // TODO Send event to room
         return card;
     }
 
@@ -44,14 +44,25 @@ export class ServerDeck implements Deck {
         this.discard.push(card);
     }
 
-    private constructor(content: Array<ServerCard>) {
+    private constructor(content: Array<ServerCard>, publicDiscard: boolean = true) {
         this.cards = content;
         this.discard = [];
+        this.publicDiscard = publicDiscard;
     }
 
     static makeDeck(color: CardColor) {
         // TODO Take amountInDeck into account
-        return new ServerDeck(cards.filter(c => c.color === color));
+        return new ServerDeck(cards.filter(c => c.color === color), color !== CardColor.Green);
+    }
+
+    serialize() {
+        return {
+            discard: this.publicDiscard ? this.discard : this.discard.map(c => { return { color: c.color, name: null, description: null }; }),
+            numberLeft: this.numberLeft,
+            serialize() {
+                return this;
+            }
+        }
     }
 }
 
@@ -62,16 +73,16 @@ function makeClassicWeapon(name: string, amount: number): ServerEquipment {
         color: CardColor.Black,
         description: "Si votre attaque inflige des Blessures, la victime subit 1 Blessure en plus.",
         amountInDeck: amount,
-        async apply(player: Player, room: Room) { player.equips(this); },
+        async apply(player: Player, room: Room) { player.equips(this, room); },
         listeners: {
+            ...emptyListener,
             beforeAttack: [{
                 async call(data: BeforeAttackData, room: Room, currentPlayer: Player, holder: Player) {
                     if(currentPlayer === holder && data.type === 'attack')
                         data.modifier += 1; // Boost les attaques normales du porteur
                     return data;
                 }
-            }],
-            ...emptyListener
+            }]
         }
     }
 }
@@ -86,16 +97,16 @@ const equipments: Array<ServerEquipment> = [
         color: CardColor.White,
         description: "Si vous êtes un hunter et que votre identité est révélée, chaque fois qu'une de vos attaques inflige des Blessures, vous infligez 2 Blessures supplémentaires.",
         amountInDeck: 1,
-        async apply(player: Player, room: Room) { player.equips(this); },
+        async apply(player: Player, room: Room) { player.equips(this, room); },
         listeners: {
+            ...emptyListener,
             beforeAttack: [{
                 async call(data: BeforeAttackData, room: Room, currentPlayer: Player, holder: Player) {
                     if(currentPlayer === holder && data.type === 'attack' && currentPlayer.character.revealed && currentPlayer.character.identity.faction === Faction.Hunter)
                         data.modifier += 2;
                     return data;
                 }
-            }],
-            ...emptyListener
+            }]
         }
     }
 ];

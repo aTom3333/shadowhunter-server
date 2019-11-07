@@ -3,14 +3,15 @@ import {Player} from "./Player";
 import {Namespace, Server, Socket} from "socket.io";
 import {Character, Faction} from "../common/Game/Character";
 import {characters} from "./Data/Characters";
-import {CardColor, CharacterState, PawnColor} from "../common/Game/CharacterState";
+import {CardColor, CharacterState} from "../common/Game/CharacterState";
 import {AfterAttackData, BeforeAttackData, Listeners, TurnManager} from "./TurnManager";
 import {ServerPower} from "./Data/Powers";
 import {ServerDeck, ServerEquipment} from "./Data/Cards";
 import {AddDices, Dice4, Dice6, SubtractDices} from "../common/Event/DiceResult";
 import {locations} from "./Data/Locations";
 import {FullRoom, RoomState, RoomSummary} from "../common/Protocol/RoomInterface";
-import {Dice, Response, Update} from "../common/Protocol/SocketIOEvents";
+import {Debug, Dice, Response, Update} from "../common/Protocol/SocketIOEvents";
+import {Duplex} from "stream";
 
 
 export function randomInt(low: number, high: number): number {
@@ -52,8 +53,9 @@ export class Room {
     }
 
     serializeState(): FullRoom {
+        const board = this.board ? this.board.serialize(this.isGameOver()) : null;
         return {
-            board: this.board,
+            board: board, //TODO Don't serialize identity id not revealed
             players: this.players.map(p => { return { id: p.character?p.character.id:undefined, name: p.name }; })
         };
     }
@@ -107,7 +109,7 @@ export class Room {
     }
 
     private throwDice6(player: Player): Dice6 {
-        const value = randomInt(1, 7);
+        const value = 4;//randomInt(1, 7);
         return {
             value, finalValue() {
                 return this.value;
@@ -116,7 +118,7 @@ export class Room {
     }
 
     private throwDice4(player: Player): Dice4 {
-        const value = randomInt(1, 5);
+        const value = 3;//randomInt(1, 5);
         return {
             value, finalValue() {
                 return this.value;
@@ -164,7 +166,11 @@ export class Room {
 
     applyDamage(target: Player, damage: number) {
         const actualDamage = target.character.dealDamage(damage);
-        // TODO Communication
+        this.getRoomNamespace().emit(Update.ChangeHP.stub, Update.ChangeHP({
+            player: target.serialize(),
+            type: '-',
+            amount: damage
+        }));
         this.updateTS();
     }
 
@@ -240,7 +246,7 @@ export class Room {
 
             this.players.forEach(p => p.emit(Update.OwnIdentity.stub, Update.OwnIdentity(p.character)));
 
-            setTimeout(() => { this.play(); }, 5000);
+            setTimeout(() => { this.play(); }, 500);
         }
         this.updateTS();
     }
@@ -281,7 +287,7 @@ export class Room {
     async play() {
         try {
             while (!this.isGameOver()) {
-                const currentPlayer = this.players.find(p => p.character.id === this.board.currentTurn.character.id);
+                const currentPlayer = this.players.find(p => p.character.id === this.board.currentCharacterId);
                 await this.playTurn(currentPlayer);
                 this.board.nextTurn();
             }
@@ -299,6 +305,12 @@ export class Room {
     }
 
     async attackPlayer(attacker: Player, target: Player, damage: number, type: string) {
+        this.getRoomNamespace().emit(Update.Attack.stub, Update.Attack({
+            attacker: attacker.serialize(),
+            target: target.serialize(),
+            type
+        }));
+
         let data: any = new BeforeAttackData(target, type, damage, 0);
 
         data = await this.invokeListener(data, attacker, (l: Listeners) => l.beforeAttack);
@@ -310,6 +322,16 @@ export class Room {
         data = new AfterAttackData(target, type, damage);
 
         data = await this.invokeListener(data, attacker, (l: Listeners) => l.afterAttack);
+
+        if(target.character.lostHp >= target.character.identity.hp) {
+            // Dead
+            target.character.dead = true;
+            target.character.killerId = attacker.character.id;
+            this.getRoomNamespace().emit(Update.Dead.stub, Update.Dead({
+                target: target.serialize(),
+                killer: attacker.serialize()
+            }));
+        }
     }
 
     async drawCard(color: CardColor, player: Player) {
@@ -326,10 +348,23 @@ export class Room {
                 break;
         }
         const card = deck.drawCard(this, player);
+        this.getRoomNamespace().emit(Update.DrawCard.stub, Update.DrawCard({
+            player: player.serialize(),
+            card: card.color === CardColor.Green ? { name: null, description: null, color: CardColor.Green } : card
+        }));
         await card.apply(player, this);
     }
 
     private showEnd() {
         // TODO Implement
+    }
+
+    checkStates() {
+        this.players.forEach(p => {
+            const boardState = this.serializeState();
+            if(p.character)
+                boardState.board.states.find(c => c.id === p.character.id).identity = p.character.identity;
+            p.emit(Debug.CheckState.stub, Debug.CheckState(boardState));
+        });
     }
 }

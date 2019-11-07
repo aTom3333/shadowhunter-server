@@ -35,6 +35,7 @@ export const powers: {
         name: "Foudre",
         description: "Au début de votre tour, choisissez un joueur et infligez-lui autant de Blessures que le résultat d'un dé à 6 faces.",
         listeners: {
+            ...emptyListener,
             start: [{
                 async call(data: void, room: Room, current: Player, self: Player) {
                     if(current !== self)
@@ -59,8 +60,7 @@ export const powers: {
                         await room.attackPlayer(self, targetedPlayer, damage.finalValue(), 'thunder');
                     }
                 }
-            }],
-            ...emptyListener
+            }]
         }
     },
     caprice: {

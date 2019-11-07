@@ -13,6 +13,7 @@ import {
 import {ServerEquipment} from "./Data/Cards";
 import {Request, Response, Update} from "../common/Protocol/SocketIOEvents";
 import {PlayerInterface} from "../common/Protocol/PlayerInterface";
+import {compare} from "../common/Utility/Compare";
 
 
 
@@ -67,7 +68,7 @@ export class Player {
                                 return;
                             socketTried.forEach((s: Socket) => s.removeAllListeners('response:choice'));
                             answerReceived = true;
-                            if(!choices.includes(data)) {
+                            if(choices.findIndex(c => compare(JSON.parse(JSON.stringify(c)), data)) === -1) {
                                 reject(new Error("Player responded with data not in dataset"));
                             } else {
                                 resolve(data);
@@ -107,22 +108,30 @@ export class Player {
 
 
     async choosePlayer(title: string, players: Array<Player>, tries: number = -1): Promise<Player> {
-        const playerName = await this.choose(title, players.map(p => p.name), 'player', tries);
-        return players.find(p => p.name === playerName);
+        const response = await this.choose(title, players.map(p => { return { name: p.name, id: p.character.id }}), 'target', tries);
+        return players.find(p => p.name === response.name);
     }
 
     emit(event: string, data: any) {
         this.sockets.forEach(s => s.emit(event, data));
     }
 
-    equips(equipment: ServerEquipment) {
+    equips(equipment: ServerEquipment, room: Room) {
         this.character.equipment.push(equipment);
+        room.getRoomNamespace().emit(Update.Equip.stub, Update.Equip({
+            player: this.serialize(),
+            equipment: {
+                name: equipment.name,
+                description: equipment.description,
+                color: equipment.color
+            }
+        }));
     }
 
     serialize(): PlayerInterface {
         return {
             name: this.name,
-            character: this.character
+            character: this.character // TODO Dont send identity if not revealed
         };
     }
 }
