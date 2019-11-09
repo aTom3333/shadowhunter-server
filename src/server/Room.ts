@@ -56,7 +56,8 @@ export class Room {
         const board = this.board ? this.board.serialize(this.isGameOver()) : null;
         return {
             board: board, //TODO Don't serialize identity id not revealed
-            players: this.players.map(p => { return { id: p.character?p.character.id:undefined, name: p.name }; })
+            players: this.players.map(p => { return { id: p.character?p.character.id:undefined, name: p.name }; }),
+            winners: this.isGameOver() ? this.players.filter(p => p.character).filter(p => p.hasWon(this)).map(p => p.character.id) : null
         };
     }
 
@@ -356,7 +357,7 @@ export class Room {
     }
 
     private showEnd() {
-        // TODO Implement
+        this.getRoomNamespace().emit(Update.GameOver.stub, Update.GameOver(this.serializeState()));
     }
 
     checkStates() {
