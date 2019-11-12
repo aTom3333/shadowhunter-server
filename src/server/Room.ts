@@ -204,6 +204,8 @@ export class Room {
                 amountNeutral = 2;
                 amountShadowHunter = 2;
                 break;
+            case 1:
+                throw new Error('Il faut plus d\'un joueur pour commencer une partie')
             default:
                 throw new Error('Not implemented'); // TODO Better error handling
         }
@@ -230,25 +232,38 @@ export class Room {
     }
 
     startGame() {
+        try {
+            if (!this.gameStarted()) {
+                const charas = shuffleArray(this.generateComposition(false)); // TODO Leave control to the players
+                this.players.forEach((p, i) => p.character = new CharacterState(i, charas[i], i));
+
+                this.board = new Board(this.players.map(p => p.character), shuffleArray(locations),
+                    ServerDeck.makeDeck(CardColor.White), ServerDeck.makeDeck(CardColor.Black), ServerDeck.makeDeck(CardColor.Green));
+
+                this.getRoomNamespace().emit(Update.GameStarted.stub, Update.GameStarted(this.serializeState()));
+
+                this.players.forEach(p => p.emit(Update.OwnIdentity.stub, Update.OwnIdentity(p.character)));
+
+                setTimeout(() => {
+                    this.play();
+                }, 500);
+            }
+        } catch(e) {
+            if(e instanceof Error)
+                e = {
+                    name: e.name,
+                    message: e.message,
+                    stack: e.stack
+                };
+            this.getRoomNamespace().emit('error', e);
+            return;
+        }
+
         this.players.forEach(p => {
             p.sockets.forEach(s => {
                 s.removeAllListeners('request:startgame');
             })
         });
-
-        if(!this.gameStarted()) {
-            const charas = shuffleArray(this.generateComposition(false)); // TODO Leave control to the players
-            this.players.forEach((p, i) => p.character = new CharacterState(i, charas[i], i));
-
-            this.board = new Board(this.players.map(p => p.character), shuffleArray(locations),
-                                    ServerDeck.makeDeck(CardColor.White), ServerDeck.makeDeck(CardColor.Black), ServerDeck.makeDeck(CardColor.Green));
-
-            this.getRoomNamespace().emit(Update.GameStarted.stub, Update.GameStarted(this.serializeState()));
-
-            this.players.forEach(p => p.emit(Update.OwnIdentity.stub, Update.OwnIdentity(p.character)));
-
-            setTimeout(() => { this.play(); }, 500);
-        }
         this.updateTS();
     }
 
