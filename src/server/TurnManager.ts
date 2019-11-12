@@ -307,8 +307,8 @@ export class TurnManager {
             .filter(p => !p.character.dead)
             .filter(p => this.room.areNextTo(this.currentPlayer, p)));
         data.targets.push(null); // Option of not attacking
-        data.targets.push(this.currentPlayer);
-        data.targets.push(this.room.players.filter(p => p.character));
+        // data.targets.push(this.currentPlayer);
+        // data.targets.push(this.room.players.filter(p => p.character));
 
         data = await this.room.invokeListener(data, this.currentPlayer, (l: Listeners) => l.beforeAttackTargetSelection);
         if (this.room.isGameOver())

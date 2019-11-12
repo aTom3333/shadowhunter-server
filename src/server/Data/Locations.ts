@@ -23,7 +23,17 @@ export const locations: Array<ServerLocation> = [
         numbers: [6],
         async apply(room: Room, player: Player) {
             if(await player.askYesNo("Prendre une carte Lumière ?")) {
-                await room.drawCard(CardColor.White, player);
+                try {
+                    await room.drawCard(CardColor.White, player);
+                } catch (e) {
+                    if(e instanceof Error)
+                        e = {
+                            name: e.name,
+                            message: e.message,
+                            stack: e.stack
+                        };
+                    room.getRoomNamespace().emit('error', e);
+                }
             }
         }
     },
@@ -34,18 +44,29 @@ export const locations: Array<ServerLocation> = [
         async apply(room: Room, player: Player) {
             const answer = await player.choose("Prendre une carte de quelle pile ?",
                                                 ['Lumière', 'Ténèbres', 'Vision', 'Aucune'], 'generic');
-            switch (answer) {
-                case 'Lumière':
-                    await room.drawCard(CardColor.White, player);
-                    break;
-                case 'Ténèbres':
-                    await room.drawCard(CardColor.Black, player);
-                    break;
-                case 'Vision':
-                    await room.drawCard(CardColor.Green, player);
-                    break;
-                case 'Aucune':
-                    break;
+
+            try {
+                switch (answer) {
+                    case 'Lumière':
+                        await room.drawCard(CardColor.White, player);
+                        break;
+                    case 'Ténèbres':
+                        await room.drawCard(CardColor.Black, player);
+                        break;
+                    case 'Vision':
+                        await room.drawCard(CardColor.Green, player);
+                        break;
+                    case 'Aucune':
+                        break;
+                }
+            } catch (e) {
+                if(e instanceof Error)
+                    e = {
+                        name: e.name,
+                        message: e.message,
+                        stack: e.stack
+                    };
+                room.getRoomNamespace().emit('error', e);
             }
         }
     },
@@ -55,7 +76,17 @@ export const locations: Array<ServerLocation> = [
         numbers: [2, 3],
         async apply(room: Room, player: Player) {
             if(await player.askYesNo("Prendre une carte Vision ?")) {
-                await room.drawCard(CardColor.Green, player);
+                try {
+                    await room.drawCard(CardColor.Green, player);
+                } catch (e) {
+                    if(e instanceof Error)
+                        e = {
+                            name: e.name,
+                            message: e.message,
+                            stack: e.stack
+                        };
+                    room.getRoomNamespace().emit('error', e);
+                }
             }
         }
     },
@@ -65,7 +96,17 @@ export const locations: Array<ServerLocation> = [
         numbers: [8],
         async apply(room: Room, player: Player) {
             if(await player.askYesNo("Prendre une carte Ténèbres ?")) {
-                await room.drawCard(CardColor.Black, player);
+                try {
+                    await room.drawCard(CardColor.Black, player);
+                } catch (e) {
+                    if(e instanceof Error)
+                        e = {
+                            name: e.name,
+                            message: e.message,
+                            stack: e.stack
+                        };
+                    room.getRoomNamespace().emit('error', e);
+                }
             }
         }
     },
@@ -99,11 +140,11 @@ export const locations: Array<ServerLocation> = [
             });
             possibilites.push(null);
             if(possibilites.length > 1) {
-                const target = await player.choose("Quel équipement voler ?", possibilites, 'playerequipment');
-                if(target !== null) {
-                    // TODO Implement
-                    //await room.stealEquipment(target.target, player, target.equipment);
-                }
+                // const target = await player.choose("Quel équipement voler ?", possibilites, 'playerequipment');
+                // if(target !== null) {
+                //     // TODO Implement
+                //     //await room.stealEquipment(target.target, player, target.equipment);
+                // }
             }
         }
     }

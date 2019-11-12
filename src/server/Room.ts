@@ -110,7 +110,7 @@ export class Room {
     }
 
     private throwDice6(player: Player): Dice6 {
-        const value = 4;//randomInt(1, 7);
+        const value = randomInt(1, 7);
         return {
             value, finalValue() {
                 return this.value;
@@ -119,7 +119,7 @@ export class Room {
     }
 
     private throwDice4(player: Player): Dice4 {
-        const value = 3;//randomInt(1, 5);
+        const value = randomInt(1, 5);
         return {
             value, finalValue() {
                 return this.value;
