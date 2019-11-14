@@ -41,7 +41,7 @@ export const victoryConditions: {
                 target = board.states[board.previousOf(self_idx)];
             }
 
-            const targetPlayer = room.players.find(p => p.character.id === target.id);
+            const targetPlayer = room.players.filter(p => p.character).find(p => p.character.id === target.id);
 
             return targetPlayer.hasWon(room);
         }
@@ -55,7 +55,7 @@ export const victoryConditions: {
                 return false;
             // Si Allie est vivante, elle gagne si la partie est finie, càd au moins un personnage a gagné
             let gameOver = false;
-            room.players.every(p => {
+            room.players.filter(p => p.character).every(p => {
                 if (p.character.id !== state.id) {
                     if (p.hasWon(room)) {
                         gameOver = true;

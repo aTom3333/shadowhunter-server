@@ -122,7 +122,7 @@ export const locations: Array<ServerLocation> = [
 
                 await room.attackPlayer(player, target, 2, 'hauntedforest');
             } else {
-                // TODO Heal
+                await room.healPlayer(target, 1);
             }
         }
     },

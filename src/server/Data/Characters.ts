@@ -11,22 +11,6 @@ export const characters: Array<Character> = [
         powers.foudre,
         victoryConditions.hunter
     ),
-    // TODO temp
-    new Character(
-        'Dark Franklin',
-        Faction.Shadow,
-        12,
-        powers.foudre,
-        victoryConditions.shadow
-    ),
-    new Character(
-        'Neutral Franklin',
-        Faction.Neutral,
-        12,
-        powers.foudre,
-        victoryConditions.allie
-    ),
-    // auto-generated
     new Character(
         "Agnès",
         Faction.Neutral,
