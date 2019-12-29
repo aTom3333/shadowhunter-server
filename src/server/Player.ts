@@ -16,10 +16,6 @@ import {PlayerInterface} from "../common/Protocol/PlayerInterface";
 import {compare} from "../common/Utility/Compare";
 
 
-
-
-
-
 export class Player {
     sockets: Array<Socket>;
     name: string;
@@ -131,7 +127,7 @@ export class Player {
     serialize(): PlayerInterface {
         return {
             name: this.name,
-            character: this.character // TODO Dont send identity if not revealed
+            character: this.character
         };
     }
 }

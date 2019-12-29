@@ -125,6 +125,7 @@ export interface TurnListener<T> {
      * @param self The owner of the thing that have this listener
      */
     call(data: T, room: Room, current: Player, self: Player): Promise<T>;
+    priority: number;
 }
 
 export interface Listeners {

@@ -85,7 +85,8 @@ export const powers: {
 
                         await room.attackPlayer(self, targetedPlayer, damage.finalValue(), 'thunder');
                     }
-                }
+                },
+                priority: 0
             }]
         }
     },
@@ -110,7 +111,8 @@ export const powers: {
                         room.usePower(self);
                         // Nothing to do, the logic for changing direction is in the VictoryCondition
                     }
-                }
+                },
+                priority: 0
             }]
         }
     },
@@ -141,14 +143,24 @@ export const powers: {
                         }));
                     }
                     return data;
-                }
+                },
+                priority: 0
             }]
         }
     },
     braquage: {
         name: "Braquage",
         description: "Si vous infligez au moins 2 Blessures à un personnage lors d'une attaque, vous pouvez lui voler une carte équipement au lieu de lui infliger des Blessures.",
-        listeners: emptyListener // TODO braquage
+        listeners: {
+            ...emptyListener,
+            beforeAttack: [{
+                async call(data: BeforeAttackData, room: Room, current: Player, self: Player) {
+                    return data;
+                },
+                priority: 1 // After modifier are applied
+                // TODO braquage
+            }]
+        }
     },
     braquageExtension: {
         name: "Braquage",
@@ -182,7 +194,8 @@ export const powers: {
 
                         await room.healPlayer(self, 1);
                     }
-                }
+                },
+                priority: 0
             }]
         }
     },
@@ -202,7 +215,8 @@ export const powers: {
                         target: data.target,
                         processed: []
                     }
-                }
+                },
+                priority: 0
             }],
             afterAttack: [{
                 async call(data: AfterAttackData, room: Room, current: Player, self: Player) {
@@ -261,7 +275,8 @@ export const powers: {
                     }
 
                     return data;
-                }
+                },
+                priority: 0
             }],
         }
     },
@@ -308,7 +323,8 @@ export const powers: {
                         );
                         room.sendMessage('{0:player} a été exorcisé et ne peut plus utiliser son pouvoir');
                     }
-                }
+                },
+                priority: 0
             }]
         }
     },
@@ -342,7 +358,8 @@ export const powers: {
                     }
 
                     return data;
-                }
+                },
+                priority: 0
             }]
         }
     },

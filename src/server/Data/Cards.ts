@@ -17,7 +17,7 @@ export interface ServerEquipment extends ServerCard, Equipment {
 
 export class ServerDeck implements Deck {
     private cards: Array<ServerCard>;
-    private publicDiscard: boolean
+    private publicDiscard: boolean;
     discard: Array<ServerCard>;
 
     get numberLeft() {
@@ -81,7 +81,8 @@ function makeClassicWeapon(name: string, amount: number): ServerEquipment {
                     if(currentPlayer === holder && data.type === 'attack')
                         data.modifier += 1; // Boost les attaques normales du porteur
                     return data;
-                }
+                },
+                priority: 0
             }]
         }
     }
@@ -105,7 +106,8 @@ const equipments: Array<ServerEquipment> = [
                     if(currentPlayer === holder && data.type === 'attack' && currentPlayer.character.revealed && currentPlayer.character.identity.faction === Faction.Hunter)
                         data.modifier += 2;
                     return data;
-                }
+                },
+                priority: 0
             }]
         }
     }

@@ -4,7 +4,7 @@ import {Namespace, Server, Socket} from "socket.io";
 import {Character, Faction} from "../common/Game/Character";
 import {characters} from "./Data/Characters";
 import {CardColor, CharacterState} from "../common/Game/CharacterState";
-import {AfterAttackData, BeforeAttackData, Listeners, TurnManager} from "./TurnManager";
+import {AfterAttackData, BeforeAttackData, Listeners, TurnListener, TurnManager} from "./TurnManager";
 import {ServerPower} from "./Data/Powers";
 import {ServerDeck, ServerEquipment} from "./Data/Cards";
 import {AddDices, Dice4, Dice6, SubtractDices} from "../common/Event/DiceResult";
@@ -56,7 +56,7 @@ export class Room {
     serializeState(): FullRoom {
         const board = this.board ? this.board.serialize(this.isGameOver()) : null;
         return {
-            board: board, //TODO Don't serialize identity id not revealed
+            board: board,
             players: this.players.map(p => { return { id: p.character?p.character.id:undefined, name: p.name }; }),
             winners: this.isGameOver() ? this.players.filter(p => p.character).filter(p => p.hasWon(this)).map(p => p.character.id) : null
         };
@@ -224,17 +224,14 @@ export class Room {
         for(let i = 0; i < amountShadowHunter; i++) {
             const shadowIdx = randomInt(0, shadows.length);
             charas.push(shadows[shadowIdx]);
-            // TODO Remove inserted character
             shadows.splice(shadowIdx, 1);
             const hunterIdx = randomInt(0, hunters.length);
             charas.push(hunters[hunterIdx]);
-            // TODO Remove inserted character
             hunters.splice(hunterIdx, 1);
         }
         for(let i = 0; i < amountNeutral; i++) {
             const neutralIdx = randomInt(0, neutrals.length);
             charas.push(neutrals[neutralIdx]);
-            // TODO Remove inserted character
             neutrals.splice(neutralIdx, 1);
         }
 
@@ -287,18 +284,26 @@ export class Room {
     }
 
     async invokeListener<T>(data: T, currentPlayer: Player, listenerGetter: Function): Promise<T> {
+        const listeners: Array<{p: Player, l: TurnListener<T>}> = [];
+
         for(const p of this.players.filter(p => p.character)) {
             // Invoke power callbacks
             for(const l of listenerGetter((<ServerPower>p.character.identity.power).listeners)) {
-                data = await l.call(data, this, currentPlayer, p);
+                listeners.push({p, l});
             }
 
             // Invoke equipment callbacks
             for(const e of p.character.equipment) {
                 for(const l of listenerGetter((<ServerEquipment>e).listeners)) {
-                    data = await l.call(data, this, currentPlayer, p);
+                    listeners.push({p, l});
                 }
             }
+        }
+
+        listeners.sort((a, b) => a.l.priority - b.l.priority);
+
+        for(const {p, l} of listeners) {
+            data = await l.call(data, this, currentPlayer, p);
         }
 
         return data;
@@ -354,6 +359,11 @@ export class Room {
             // Dead
             target.character.dead = true;
             target.character.killerId = attacker.character.id;
+            this.board.deaths.push({
+                deadId: target.character.id,
+                killerId: attacker.character.id,
+                reason: type
+            });
             this.getRoomNamespace().emit(Update.Dead.stub, Update.Dead({
                 target: target.serialize(),
                 killer: attacker.serialize()

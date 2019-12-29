@@ -78,7 +78,33 @@ export const victoryConditions: {
     bryan: {
         description: "Tuer un personnage de 13 Points de Vie ou plus OU être dans le sanctuaire ancien à la fin du jeu.",
         isFulfilled(room: Room, self: Player): boolean {
-            // todo : bryan
+            const board = room.board;
+            const state = self.character;
+
+            let gameOver = false;
+            room.players.filter(p => p.character).every(p => {
+                if (p.character.id !== state.id) {
+                    if (p.hasWon(room)) {
+                        gameOver = true;
+                        return false;
+                    }
+                }
+            });
+            if(gameOver && state.location.name === "Sanctuaire ancien")
+                return true;
+
+            let hasKilledStrong = false;
+            board.deaths.every(dr => {
+                if(dr.killerId === state.id) {
+                    const deadChara = board.states.find(c => c.id === dr.deadId);
+                    if(deadChara.identity.hp >= 13) {
+                        hasKilledStrong = true;
+                        return false;
+                    }
+                }
+            });
+            if(hasKilledStrong)
+                return true;
             return false;
         }
     },
@@ -99,7 +125,13 @@ export const victoryConditions: {
     charles: {
         description: "Tuer un autre personnage par une attaque alors qu'il y a déjà eu 3 morts ou plus.",
         isFulfilled(room: Room, self: Player): boolean {
-            //todo charles
+            const board = room.board;
+            const state = self.character;
+            for(let i = 3; i < board.deaths.length; i++) {
+                const dr = board.deaths[i];
+                if(dr.killerId === state.id && dr.reason === 'attack')
+                    return true;
+            }
             return false;
         }
     },
@@ -123,7 +155,7 @@ export const victoryConditions: {
             const board = room.board;
             const state = self.character;
             let ownedWanted = 0;
-            if (state.equipment.find(e => e /* TODO detect the wanted equipment */))
+            if (state.equipment.find(e => e.name === "Crucifix en Argent" || e.name === "Amulette" || e.name === "Lance de Longinus" || e.name === "Toge Sainte"))
                 ownedWanted += 1;
             return ownedWanted >= 3;
         }
