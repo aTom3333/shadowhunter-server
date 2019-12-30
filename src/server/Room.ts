@@ -3,7 +3,7 @@ import {Player} from "./Player";
 import {Namespace, Server, Socket} from "socket.io";
 import {Character, Faction} from "../common/Game/Character";
 import {characters} from "./Data/Characters";
-import {CardColor, CharacterState} from "../common/Game/CharacterState";
+import {CardColor, CharacterState, Equipment} from "../common/Game/CharacterState";
 import {AfterAttackData, BeforeAttackData, Listeners, TurnListener, TurnManager} from "./TurnManager";
 import {ServerPower} from "./Data/Powers";
 import {ServerDeck, ServerEquipment} from "./Data/Cards";
@@ -346,6 +346,8 @@ export class Room {
         let data: any = new BeforeAttackData(target, type, damage, 0);
 
         data = await this.invokeListener(data, attacker, (l: Listeners) => l.beforeAttack);
+        if(!(<BeforeAttackData>data).doAttack)
+            return;
         let finalDamage = (<BeforeAttackData>data).damage !== 0 ? (<BeforeAttackData>data).damage + (<BeforeAttackData>data).modifier : 0;
         if(finalDamage < 0)
             finalDamage = 0;
@@ -430,5 +432,13 @@ export class Room {
             msg,
             params: data
         }));
+    }
+
+    stealEquipment(srcPlayer: Player, destPlayer: Player, equip: Equipment) {
+        this.sendMessage('{0:player} vole {1:equipment} à {2:player}', destPlayer.serialize(), equip, srcPlayer.serialize());
+        const equipIdx = srcPlayer.character.equipment.findIndex(e => e.name === equip.name);
+        const serverEquip = srcPlayer.character.equipment[equipIdx] as ServerEquipment;
+        srcPlayer.desequips(serverEquip, this);
+        destPlayer.equips(serverEquip, this);
     }
 }

@@ -155,9 +155,15 @@ export const powers: {
             ...emptyListener,
             beforeAttack: [{
                 async call(data: BeforeAttackData, room: Room, current: Player, self: Player) {
-                    return data;
+                    if(current !== self)
+                        return data;
+                    if(data.damage !== 0 && data.damage + data.modifier >= 2 && data.target.character.equipment.length >= 1) {
+                        if(await self.askYesNo("Utiliser votre pouvoir ?")) {
+
+                        }
+                    }
                 },
-                priority: 1 // After modifier are applied
+                priority: 10 // After modifier are applied
                 // TODO braquage
             }]
         }

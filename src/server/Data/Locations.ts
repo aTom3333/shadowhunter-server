@@ -2,6 +2,7 @@ import {CardColor, Equipment, Location} from "../../common/Game/CharacterState";
 import {Room} from "../Room";
 import {Player} from "../Player";
 import {AddDices} from "../../common/Event/DiceResult";
+import {PlayerInterface} from "../../common/Protocol/PlayerInterface";
 
 
 export interface ServerLocation extends Location {
@@ -131,20 +132,20 @@ export const locations: Array<ServerLocation> = [
         description: "Vous pouvez voler une carte équipement à un autre joueur.",
         numbers: [10],
         async apply(room: Room, player: Player) {
-            let possibilites: Array<{target: Player; equipment: Equipment}> = [];
+            let possibilites: Array<{target: PlayerInterface; equipment: Equipment}> = [];
             room.players.filter(p => p.character).filter(p => p !== player).forEach(p => {
                 p.character.equipment.forEach(e => possibilites.push({
-                    target: p,
+                    target: p.serialize(),
                     equipment: e
                 }));
             });
             possibilites.push(null);
             if(possibilites.length > 1) {
-                // const target = await player.choose("Quel équipement voler ?", possibilites, 'playerequipment');
-                // if(target !== null) {
-                //     // TODO Implement
-                //     //await room.stealEquipment(target.target, player, target.equipment);
-                // }
+                const target = await player.choose("Quel équipement voler ?", possibilites, 'playerequipment');
+                const targetedPlayer = room.players.find(p => p.name === target.target.name);
+                if(target !== null) {
+                    await room.stealEquipment(targetedPlayer, player, target.equipment);
+                }
             }
         }
     }

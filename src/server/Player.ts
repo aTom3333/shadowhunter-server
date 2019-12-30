@@ -124,6 +124,21 @@ export class Player {
         }));
     }
 
+    desequips(equipment: ServerEquipment, room: Room) {
+        const equipmentIdx = this.character.equipment.findIndex(e => e.name === equipment.name);
+        if(equipmentIdx !== -1) {
+            this.character.equipment.splice(equipmentIdx, 1);
+            room.getRoomNamespace().emit(Update.Desequip.stub, Update.Desequip({
+                player: this.serialize(),
+                equipment: {
+                    name: equipment.name,
+                    description: equipment.description,
+                    color: equipment.color
+                }
+            }))
+        }
+    }
+
     serialize(): PlayerInterface {
         return {
             name: this.name,

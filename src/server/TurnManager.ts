@@ -89,12 +89,14 @@ export class BeforeAttackData {
     type: string;
     damage: number;
     modifier: number;
+    doAttack: boolean;
 
     constructor(target: Player, type: string, damage: number, modifier: number) {
         this.target = target;
         this.type = type;
         this.damage = damage;
         this.modifier = modifier;
+        this.doAttack = true;
     }
 }
 
