@@ -3,15 +3,14 @@ import {Player} from "./Player";
 import {Namespace, Server, Socket} from "socket.io";
 import {Character, Faction} from "../common/Game/Character";
 import {characters} from "./Data/Characters";
-import {CardColor, CharacterState, Equipment} from "../common/Game/CharacterState";
+import {Card, CardColor, CharacterState, Equipment} from "../common/Game/CharacterState";
 import {AfterAttackData, BeforeAttackData, Listeners, TurnListener, TurnManager} from "./TurnManager";
 import {ServerPower} from "./Data/Powers";
-import {ServerDeck, ServerEquipment} from "./Data/Cards";
+import {ServerCard, ServerDeck, ServerEquipment} from "./Data/Cards";
 import {AddDices, Dice4, Dice6, SubtractDices} from "../common/Event/DiceResult";
 import {locations} from "./Data/Locations";
 import {FullRoom, RoomState, RoomSummary} from "../common/Protocol/RoomInterface";
 import {Debug, Dice, Request, Response, Update} from "../common/Protocol/SocketIOEvents";
-import {Duplex} from "stream";
 import {PlayerInterface} from "../common/Protocol/PlayerInterface";
 
 
@@ -384,6 +383,16 @@ export class Room {
         this.updateTS();
     }
 
+    async setPlayerHP(target: Player, amount: number) {
+        target.character.lostHp = amount;
+        this.getRoomNamespace().emit(Update.ChangeHP.stub, Update.ChangeHP({
+            player: target.serialize(),
+            type: '=',
+            amount: amount
+        }));
+        this.updateTS();
+    }
+
     async drawCard(color: CardColor, player: Player) {
         let deck: ServerDeck;
         switch (color) {
@@ -440,5 +449,20 @@ export class Room {
         const serverEquip = srcPlayer.character.equipment[equipIdx] as ServerEquipment;
         srcPlayer.desequips(serverEquip, this);
         destPlayer.equips(serverEquip, this);
+    }
+
+    discardCard(card: Card) {
+        switch (card.color) {
+            case CardColor.White:
+                (this.board.whiteDeck as ServerDeck).discardCard(card as ServerCard);
+                break;
+            case CardColor.Black:
+                (this.board.blackDeck as ServerDeck).discardCard(card as ServerCard);
+                break;
+            case CardColor.Green:
+                (this.board.greenDeck as ServerDeck).discardCard(card as ServerCard);
+                break;
+        }
+        this.getRoomNamespace().emit(Update.DiscardCard.stub, Update.DiscardCard(card.color === CardColor.Green ? {color: CardColor.Green, name: null, description: null} : card));
     }
 }
