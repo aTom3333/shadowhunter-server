@@ -240,7 +240,6 @@ export class Room {
             const neutralIdx = randomInt(0, neutrals.length);
             charas.push(neutrals[neutralIdx]);
             neutrals.splice(neutralIdx, 1);
-            console.log(neutrals[neutralIdx]);
         }
 
         return charas;
