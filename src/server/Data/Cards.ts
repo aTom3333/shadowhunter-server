@@ -4,7 +4,8 @@ import {Room, shuffleArray} from "../Room";
 import {
     BeforeAttackData,
     BeforeAttackDiceData,
-    BeforeAttackTargetSelectionData, DiceThrower4,
+    BeforeAttackTargetSelectionData,
+    DiceThrower4,
     emptyListener,
     Listeners,
     Target
@@ -12,6 +13,7 @@ import {
 import {Character, Faction} from "../../common/Game/Character";
 import {Deck} from "../../common/Game/Board";
 import {Update} from "../../common/Protocol/SocketIOEvents";
+import {PlayerInterface} from "../../common/Protocol/PlayerInterface";
 
 
 function flatMap<T, E>(array: Array<T>, fun: {(a:T):Array<E>}):Array<E> {
@@ -361,23 +363,114 @@ const otherCards: Array<ServerCard> = [
             room.discardCard(this);
         }
     },
-    // {
-    //     name: "Dynamite",
-    //     color: CardColor.Black,
-    //     description: "Lancez les 2 dés et infligez 3 Blessures à tous les joueurs (vous compris) se trouvant dans le secteur désigné par le total des 2 dés. Il ne se passe rien si ce total est 7.",
-    //     amountInDeck: 1,
-    //     async apply(player: Player, room: Room) {
-    //         room.showCard(this);
-    //         await player.choose("Quel secteur faire exploser ?", ["Lancer les dés"]);
-    //         room.hideCard();
-    //         const res = room.addDices(player);
-    //         const targetedLocation = room.board.locations.find(loc => loc.numbers.includes(res.finalValue()));
-    //         const locIdx = room.board.locations.findIndex(loc => loc.name === targetedLocation.name);
-    //         const otherIdx = Math.floor(locIdx / 2) * 2 + 1 - locIdx % 2;
-    //         const otherLocation = room.board.locations[otherIdx];
-    //         room.discardCard(this);
-    //     }
-    // }
+    {
+        name: "Dynamite",
+        color: CardColor.Black,
+        description: "Lancez les 2 dés et infligez 3 Blessures à tous les joueurs (vous compris) se trouvant dans le secteur désigné par le total des 2 dés. Il ne se passe rien si ce total est 7.",
+        amountInDeck: 1,
+        async apply(player: Player, room: Room) {
+            room.showCard(this);
+            await player.choose("Quel secteur faire exploser ?", ["Lancer les dés"]);
+            room.hideCard();
+            const res = room.addDices(player);
+            const targetedLocation = room.board.locations.find(loc => loc.numbers.includes(res.finalValue()));
+            const locIdx = room.board.locations.findIndex(loc => loc.name === targetedLocation.name);
+            const otherIdx = Math.floor(locIdx / 2) * 2 + 1 - locIdx % 2;
+            const otherLocation = room.board.locations[otherIdx];
+            await Promise.all([room.players.map(async p => {
+                if(p.character && !p.character.dead && (p.character.location.name === targetedLocation.name || p.character.location.name === otherLocation.name)) {
+                   await room.attackPlayer(player, p, 3, 'dynamite');
+                }
+            })]);
+            room.discardCard(this);
+        }
+    },
+    {
+        name: "Peau de banane",
+        color: CardColor.Black,
+        description: "Donnez une de vos cartes équipement à un autre personnage. Si vous n'en possédez aucune, vous encaissez 1 Blessure.",
+        amountInDeck: 1,
+        async apply(player: Player, room: Room) {
+            room.showCard(this);
+            if(player.character.equipment.length > 0) {
+                const equip = await player.choose("Quel équipement donner ?", player.character.equipment.map(e => { return { target: player.serialize(), equipment: e}; }));
+                const targets = room.players.filter(p => p.character && !p.character.dead && p.name !== player.name);
+                const target = await player.choosePlayer("À qui donner l'équipement ?", targets);
+                room.stealEquipment(player, target, player.character.equipment.find(e => e.name === equip.equipment.name) as ServerEquipment);
+            } else {
+                await player.choose('Pas d\'équipement à donner', ['Subir 1 Blessure']);
+                await room.attackPlayer(player, player, 1, 'peaudebanane');
+            }
+            room.hideCard();
+            room.discardCard(this);
+        }
+    },
+    {
+        name: "Poupée démoniaque",
+        color: CardColor.Black,
+        description: "Désignez un joueur et lancez le dé à 6 faces. 1 à 4 : infligez-lui 3 Blessures. 5 ou 6 : subissez 3 Blessures.",
+        amountInDeck: 1,
+        async apply(player: Player, room: Room) {
+            room.showCard(this);
+            const targets = room.players.filter(p => p.character && !p.character.dead && p.name !== player.name);
+            const target = await player.choosePlayer("Sur qui utiliser la poupée démoniaque ?", targets);
+            room.sendMessage('{0:player} va utiliser la poupée démoniaque sur {1:player}', player.serialize(), target.serialize());
+            const result = room.d6(player);
+            if(result.finalValue() <= 4) {
+                await room.attackPlayer(player, target, 3, 'poupeedemoniaque');
+            } else {
+                await room.attackPlayer(player, player, 3, 'poupeedemoniaque');
+            }
+            room.hideCard();
+            room.discardCard(this);
+        }
+    },
+    {
+        name: "Rituel diabolique",
+        color: CardColor.Black,
+        description: "Si vous êtes un shadow et si vous décidez de révéler (ou avez déjà révélé) votre identité, soignez toutes vos Blessures.",
+        amountInDeck: 1,
+        async apply(player: Player, room: Room) {
+            room.showCard(this);
+            if(player.character.identity.faction === Faction.Shadow) {
+                const choice = await player.choose("Faire le rituel diabolique pour soigner toutes vos blessures ?", [player.character.revealed ? "Oui" : "Oui (révélation)", "Non"]);
+                if(choice.substr(0, 3) === "Oui") {
+                    room.revealPlayer(player);
+                    room.sendMessage("{0:player} effectue un rituel diabolique", player.serialize());
+                    await room.setPlayerHP(player, 0);
+                }
+            } else {
+                await player.choose("Faire le rituel diabolique pour soigner toutes vos blessures ?", ['Non']);
+            }
+            room.hideCard();
+            room.discardCard(this);
+        }
+    },
+    {
+        name: "Succube tentatrice",
+        color: CardColor.Black,
+        description: "Volez une carte équipement au joueur de votre choix.",
+        amountInDeck: 1,
+        async apply(player: Player, room: Room) {
+            room.showCard(this);
+            let possibilites: Array<{target: PlayerInterface; equipment: Equipment}> = [];
+            room.players.filter(p => p.character).filter(p => p !== player).forEach(p => {
+                p.character.equipment.forEach(e => possibilites.push({
+                    target: p.serialize(),
+                    equipment: e
+                }));
+            });
+            possibilites.push(null);
+            const target = await player.choose("Quel équipement voler ?", possibilites, 'playerequipment');
+            const targetedPlayer = room.players.find(p => p.name === target.target.name);
+            if(target !== null) {
+                await room.stealEquipment(targetedPlayer, player, target.equipment);
+            }
+            room.hideCard();
+            room.discardCard(this);
+        }
+    },
+
 
     {
         name: "Premiers Secours",

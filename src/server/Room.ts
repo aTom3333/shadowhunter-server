@@ -419,6 +419,8 @@ export class Room {
     }
 
     revealPlayer(player: Player) {
+        if(player.character.revealed)
+            return;
         player.character.revealed = true;
         this.getRoomNamespace().emit(Update.Reveal.stub, Update.Reveal(player.serialize()));
     }
