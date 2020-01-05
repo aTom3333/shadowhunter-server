@@ -1,10 +1,11 @@
-import {Card, CardColor, Equipment} from "../../common/Game/CharacterState";
+import {Card, CardColor, Equipment, Location} from "../../common/Game/CharacterState";
 import {Player} from "../Player";
 import {Room, shuffleArray} from "../Room";
 import {
     BeforeAttackData,
     BeforeAttackDiceData,
     BeforeAttackTargetSelectionData,
+    BeforeMoveData,
     DiceThrower4,
     emptyListener,
     Listeners,
@@ -14,6 +15,7 @@ import {Character, Faction} from "../../common/Game/Character";
 import {Deck} from "../../common/Game/Board";
 import {Update} from "../../common/Protocol/SocketIOEvents";
 import {PlayerInterface} from "../../common/Protocol/PlayerInterface";
+import {diceForMove, locations} from "./Locations";
 
 
 function flatMap<T, E>(array: Array<T>, fun: {(a:T):Array<E>}):Array<E> {
@@ -329,7 +331,127 @@ const equipments: Array<ServerEquipment> = [
                 priority: 0
             }]
         }
-    }
+    },
+    {
+        name: "Amulette",
+        color: CardColor.White,
+        description: "Vous ne subissez aucune Blessure causée par les cartes Ténèbres : Araignée sanguinaire, Dynamite ou Chauve-souris vampire.",
+        amountInDeck: 1,
+        async apply(player: Player, room: Room) {
+            room.showCard(this);
+            await player.choose("Vous avez Amulette", ["S'équiper"]);
+            room.hideCard();
+            player.equips(this, room);
+        },
+        listeners: {
+            ...emptyListener,
+            beforeAttack: [{
+                async call(data: BeforeAttackData, room: Room, currentPlayer: Player, holder: Player) {
+                    if(data.target === holder && (data.type === 'araigneesanguinaire' || data.type === 'chauvesourisvampire' || data.type === 'dynamite')) {
+                        data.damage = 0;
+                    }
+                    return data;
+                },
+                priority: 1
+            }]
+        }
+    },
+    {
+        name: "Boussole mystique",
+        color: CardColor.White,
+        description: "Quand vous vous déplacez, vous pouvez lancer 2 fois les dés et choisir quel résultat utiliser.",
+        amountInDeck: 1,
+        async apply(player: Player, room: Room) {
+            room.showCard(this);
+            await player.choose("Vous avez Boussole mystique", ["S'équiper"]);
+            room.hideCard();
+            player.equips(this, room);
+        },
+        listeners: {
+            ...emptyListener,
+            beforeMove: [{
+                async call(data: BeforeMoveData, room: Room, currentPlayer: Player, holder: Player) {
+                    if(currentPlayer === holder) {
+                        const result = diceForMove(room, holder);
+                        let locs: Array<Location>;
+                        if (result.finalValue() === 7)
+                            locs = locations.filter(l => l !== holder.character.location);
+                        else
+                            locs = locations.filter(l => l.numbers.includes(result.finalValue()));
+                        locs.forEach(l => {
+                            if(data.locations.findIndex(loc => loc.name === l.name) === -1)
+                                data.locations.push(l);
+                        });
+                    }
+                    return data;
+                },
+                priority: 1
+            }]
+        }
+    },
+    {
+        name: "Broche de chance",
+        color: CardColor.White,
+        description: "Un joueur dans la Forêt hantée ne peut pas utiliser le pouvoir du Lieu pour vous infliger des Blessures (mais peut toujours vous guérir).",
+        amountInDeck: 1,
+        async apply(player: Player, room: Room) {
+            room.showCard(this);
+            await player.choose("Vous avez Broche de chance", ["S'équiper"]);
+            room.hideCard();
+            player.equips(this, room);
+        },
+        listeners: {
+            ...emptyListener,
+            beforeAttack: [{
+                async call(data: BeforeAttackData, room: Room, currentPlayer: Player, holder: Player) {
+                    if(data.target === holder && (data.type === 'hauntedforest')) {
+                        data.damage = 0;
+                    }
+                    return data;
+                },
+                priority: 1
+            }]
+        }
+    },
+    {
+        name: "Crucifix en argent",
+        color: CardColor.White,
+        description: "Si vous attaquez et tuez un autre personnage, vous récupérez toutes ses cartes équipement.",
+        amountInDeck: 1,
+        async apply(player: Player, room: Room) {
+            room.showCard(this);
+            await player.choose("Vous avez Crucifix en argent", ["S'équiper"]);
+            room.hideCard();
+            player.equips(this, room);
+        },
+        listeners: {
+            ...emptyListener // TODO Implement
+        }
+    },
+    {
+        name: "Toge sainte",
+        color: CardColor.White,
+        description: "Vos attaques infligent 1 Blessure de moins et les Blessures que vous subissez sont réduites de 1.",
+        amountInDeck: 1,
+        async apply(player: Player, room: Room) {
+            room.showCard(this);
+            await player.choose("Vous avez Toge sainte", ["S'équiper"]);
+            room.hideCard();
+            player.equips(this, room);
+        },
+        listeners: {
+            ...emptyListener,
+            beforeAttack: [{
+                async call(data: BeforeAttackData, room: Room, currentPlayer: Player, holder: Player) {
+                    if(data.target === holder  || (currentPlayer === holder && data.type === 'attack')) {
+                        data.modifier -= 1;
+                    }
+                    return data;
+                },
+                priority: 0
+            }]
+        }
+    },
 ];
 
 const otherCards: Array<ServerCard> = [
@@ -373,15 +495,19 @@ const otherCards: Array<ServerCard> = [
             await player.choose("Quel secteur faire exploser ?", ["Lancer les dés"]);
             room.hideCard();
             const res = room.addDices(player);
-            const targetedLocation = room.board.locations.find(loc => loc.numbers.includes(res.finalValue()));
-            const locIdx = room.board.locations.findIndex(loc => loc.name === targetedLocation.name);
-            const otherIdx = Math.floor(locIdx / 2) * 2 + 1 - locIdx % 2;
-            const otherLocation = room.board.locations[otherIdx];
-            await Promise.all([room.players.map(async p => {
-                if(p.character && !p.character.dead && (p.character.location.name === targetedLocation.name || p.character.location.name === otherLocation.name)) {
-                   await room.attackPlayer(player, p, 3, 'dynamite');
-                }
-            })]);
+            if(res.finalValue() === 7) {
+                room.sendMessage("La dynamite n'explose pas");
+            } else {
+                const targetedLocation = room.board.locations.find(loc => loc.numbers.includes(res.finalValue()));
+                const locIdx = room.board.locations.findIndex(loc => loc.name === targetedLocation.name);
+                const otherIdx = Math.floor(locIdx / 2) * 2 + 1 - locIdx % 2;
+                const otherLocation = room.board.locations[otherIdx];
+                await Promise.all([room.players.map(async p => {
+                    if (p.character && !p.character.dead && (p.character.location.name === targetedLocation.name || p.character.location.name === otherLocation.name)) {
+                        await room.attackPlayer(player, p, 3, 'dynamite');
+                    }
+                })]);
+            }
             room.discardCard(this);
         }
     },
@@ -450,7 +576,7 @@ const otherCards: Array<ServerCard> = [
         name: "Succube tentatrice",
         color: CardColor.Black,
         description: "Volez une carte équipement au joueur de votre choix.",
-        amountInDeck: 1,
+        amountInDeck: 2,
         async apply(player: Player, room: Room) {
             room.showCard(this);
             let possibilites: Array<{target: PlayerInterface; equipment: Equipment}> = [];
@@ -483,6 +609,109 @@ const otherCards: Array<ServerCard> = [
             room.hideCard();
             room.sendMessage("{0:player} utilise les {1:card} sur {2:player}", player.serialize(), this, target.serialize());
             await room.setPlayerHP(target, 7);
+            room.discardCard(this);
+        }
+    },
+    // TODO Ange gardien
+    {
+        name: "Avènement suprême",
+        color: CardColor.White,
+        description: "Si vous êts un Hunter, vous pouvez révéler votre identité. Si vous le faites, ou si vous avez déjà révélé votre identité, vous soignez toutes vos Blessures.",
+        amountInDeck: 1,
+        async apply(player: Player, room: Room) {
+            room.showCard(this);
+            if(player.character.identity.faction === Faction.Hunter) {
+                const choice = await player.choose("Procéder à l'avènement suprême pour soigner toutes vos blessures ?", [player.character.revealed ? "Oui" : "Oui (révélation)", "Non"]);
+                if(choice.substr(0, 3) === "Oui") {
+                    room.revealPlayer(player);
+                    room.sendMessage("{0:player} procède à l'avènement suprême", player.serialize());
+                    await room.setPlayerHP(player, 0);
+                }
+            } else {
+                await player.choose("Procéder à l'avènement suprême pour soigner toutes vos blessures ?", ['Non']);
+            }
+            room.hideCard();
+            room.discardCard(this);
+        }
+    },
+    {
+        name: "Barre de chocolat",
+        color: CardColor.White,
+        description: "Si vous êts un Hunter, vous pouvez révéler votre identité. Si vous le faites, ou si vous avez déjà révélé votre identité, vous soignez toutes vos Blessures.",
+        amountInDeck: 1,
+        async apply(player: Player, room: Room) {
+            room.showCard(this);
+            const initial = player.character.identity.name[0];
+            if(['A', 'E', 'M'].includes(initial)) {
+                const choice = await player.choose("Manger la barre de chocolat pour soigner toutes vos blessures ?", [player.character.revealed ? "Oui" : "Oui (révélation)", "Non"]);
+                if(choice.substr(0, 3) === "Oui") {
+                    room.revealPlayer(player);
+                    room.sendMessage("{0:player} mange la barre de chocolat", player.serialize());
+                    await room.setPlayerHP(player, 0);
+                }
+            } else {
+                await player.choose("Manger la barre de chocolat pour soigner toutes vos blessures ?", ['Non']);
+            }
+            room.hideCard();
+            room.discardCard(this);
+        }
+    },
+    {
+        name: "Bénédiction",
+        color: CardColor.White,
+        description: "Choisissez un joueur autre que vous et lancez le dé à 6 faces. Ce joueur guérit d'autant de Blessures que le résultat du dé.",
+        amountInDeck: 1,
+        async apply(player: Player, room: Room) {
+            room.showCard(this);
+            const targets = room.players.filter(p => p.character && !p.character.dead && p.name !== player.name);
+            const target = await player.choose("Qui bénir ?", targets);
+            room.sendMessage("{0:player} offre sa bénédiction à {1:player}", player.serialize(), target.serialize());
+            const result = room.d6(player);
+            await room.healPlayer(target, result.finalValue());
+            room.hideCard();
+            room.discardCard(this);
+        }
+    },
+    {
+        name: "Eau bénite",
+        color: CardColor.White,
+        description: "Vous êtes soigné de 2 Blessures.",
+        amountInDeck: 2,
+        async apply(player: Player, room: Room) {
+            room.showCard(this);
+            const target = await player.choose("Vous avez de l'eau bénite", ['Boire l\'eau bénite']);
+            await room.healPlayer(player, 2);
+            room.hideCard();
+            room.discardCard(this);
+        }
+    },
+    {
+        name: "Miroir divin",
+        color: CardColor.White,
+        description: "Si vous êtes un shadow autre que Métamorphe, vous devez révéler votre identité.",
+        amountInDeck: 2,
+        async apply(player: Player, room: Room) {
+            room.showCard(this);
+            const choice = await player.choose("Que faire ?", [player.character.identity.faction === Faction.Shadow && player.character.identity.name !== "Métamorphe" && !player.character.revealed ? 'Se révéler' : 'Ne rien faire']);
+            if(choice === 'Se révéler')
+                room.revealPlayer(player);
+            room.hideCard();
+            room.discardCard(this);
+        }
+    },
+    // TODO Savoir ancestral
+    {
+        name: "Éclair purificateur",
+        color: CardColor.White,
+        description: "Chaque personnage, à l'exception de vous-même, subit 2 Blessures.",
+        amountInDeck: 2,
+        async apply(player: Player, room: Room) {
+            room.showCard(this);
+            const choice = await player.choose("Que faire ?", ['Faire s\'abattre l\'éclair purificateur']);
+            await Promise.all([room.players.filter(p => p.character && !p.character.dead && p.name !== player.name).map(async p => {
+                await room.attackPlayer(player, p, 2, 'eclairpurificateur');
+            })]);
+            room.hideCard();
             room.discardCard(this);
         }
     },
