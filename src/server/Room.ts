@@ -465,4 +465,12 @@ export class Room {
         }
         this.getRoomNamespace().emit(Update.DiscardCard.stub, Update.DiscardCard(card.color === CardColor.Green ? {color: CardColor.Green, name: null, description: null} : card));
     }
+
+    showCard(card: Card) {
+        this.getRoomNamespace().emit(Update.ShowCard.stub, Update.ShowCard(card));
+    }
+
+    hideCard() {
+        this.getRoomNamespace().emit(Update.HideCard.stub);
+    }
 }

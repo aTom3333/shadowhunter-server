@@ -327,7 +327,7 @@ export const powers: {
                             target.character.identity.victoryCondition,
                             target.character.identity.isExtension
                         );
-                        room.sendMessage('{0:player} a été exorcisé et ne peut plus utiliser son pouvoir');
+                        room.sendMessage('{0:player} a été exorcisé et ne peut plus utiliser son pouvoir', target.serialize());
                     }
                 },
                 priority: 0

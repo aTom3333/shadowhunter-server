@@ -1,9 +1,33 @@
 import {Card, CardColor, Equipment} from "../../common/Game/CharacterState";
 import {Player} from "../Player";
 import {Room, shuffleArray} from "../Room";
-import {BeforeAttackData, emptyListener, Listeners} from "../TurnManager";
+import {
+    BeforeAttackData,
+    BeforeAttackDiceData,
+    BeforeAttackTargetSelectionData, DiceThrower4,
+    emptyListener,
+    Listeners,
+    Target
+} from "../TurnManager";
 import {Character, Faction} from "../../common/Game/Character";
 import {Deck} from "../../common/Game/Board";
+import {Update} from "../../common/Protocol/SocketIOEvents";
+
+
+function flatMap<T, E>(array: Array<T>, fun: {(a:T):Array<E>}):Array<E> {
+    return array.reduce((a: any, b: any) => {
+        return a.concat(fun.call(this, b))
+    }, []);
+}
+
+// Object.defineProperty(Array.prototype, 'flatMap', {
+//     value: function(f: Function) {
+//         return this.reduce((ys: any, x: any) => {
+//             return ys.concat(f.call(this, x))
+//         }, [])
+//     },
+//     enumerable: false,
+// });
 
 
 export interface ServerCard extends Card {
@@ -73,7 +97,12 @@ function makeClassicWeapon(name: string, amount: number): ServerEquipment {
         color: CardColor.Black,
         description: "Si votre attaque inflige des Blessures, la victime subit 1 Blessure en plus.",
         amountInDeck: amount,
-        async apply(player: Player, room: Room) { player.equips(this, room); },
+        async apply(player: Player, room: Room) {
+            room.showCard(this);
+            await player.choose("Vous avez "+name, ["S'équiper"]);
+            room.hideCard();
+            player.equips(this, room);
+        },
         listeners: {
             ...emptyListener,
             beforeAttack: [{
@@ -106,11 +135,21 @@ function makeVision(name: string, description: string, amount: number, predicate
         description: description,
         amountInDeck: amount,
         async apply(player: Player, room: Room) {
-            // TODO Show card
+            room.getRoomNamespace().emit(Update.ShowCard.stub, Update.ShowCard({
+                color: CardColor.Green,
+                name: null,
+                description: null
+            }));
+            player.emit(Update.ShowCard.stub, Update.ShowCard(this));
             const targets = room.players.filter(p => p.character && !p.character.dead && p.name !== player.name);
             const target = await player.choosePlayer("À qui donner la carte vision ?", targets);
+            player.emit(Update.ShowCard.stub, Update.ShowCard({
+                color: CardColor.Green,
+                name: null,
+                description: null
+            }));
             room.sendMessage("{0:player} donne une carte vision à {1:player}", player.serialize(), target.serialize());
-            // TODO Show card to target
+            target.emit(Update.ShowCard.stub, Update.ShowCard(this));
             let possibilities: Array<string> = [];
             switch (action) {
                 case VisionAction.Hit:
@@ -156,6 +195,7 @@ function makeVision(name: string, description: string, amount: number, predicate
                     await room.healPlayer(target, 1);
                     break;
             }
+            room.getRoomNamespace().emit(Update.HideCard.stub);
             room.discardCard(this);
         }
     }
@@ -164,14 +204,118 @@ function makeVision(name: string, description: string, amount: number, predicate
 const equipments: Array<ServerEquipment> = [
     makeClassicWeapon("Hache tueuse", 1),
     makeClassicWeapon("Hachoir maudit", 1),
-    makeClassicWeapon("Hache tueuse", 1),
+    makeClassicWeapon("Tronçonneuse du mal", 1),
+    {
+        name: "Mitrailleuse funeste",
+        color: CardColor.Black,
+        description: "Votre attaque affecte tous les personnages qui sont à votre portée. Effectuez un seul jet de Blessures pour tous les joueurs concernés.",
+        amountInDeck: 1,
+        async apply(player: Player, room: Room) {
+            room.showCard(this);
+            await player.choose("Vous avez Mitrailleuse funeste", ["S'équiper"]);
+            room.hideCard();
+            player.equips(this, room);
+        },
+        listeners: {
+            ...emptyListener,
+            beforeAttackTargetSelection: [{
+                async call(data: BeforeAttackTargetSelectionData, room: Room, currentPlayer: Player, holder: Player) {
+                    if(currentPlayer === holder) {
+                        const newTarget = flatMap(data.targets.filter(t => t !== null), (t: Target) => {
+                            return t instanceof Player ? [t] : t;
+                        });
+                        const targets = [];
+                        if(newTarget.length > 0)
+                            targets.push(newTarget);
+                        if(data.targets.indexOf(null) !== -1)
+                            targets.push(null);
+                        data.targets = targets;
+                        return data;
+                    }
+                    return data;
+                },
+                priority: 1
+            }]
+        }
+    },
+    {
+        name: "Revolver des ténèbres",
+        color: CardColor.Black,
+        description: "Vous pouvez attaquer un joueur présent sur l'un des 4 lieux hors de votre secteur, mais vous ne pouvez plus attaquer un joueur situé dans le même secteur que vous.",
+        amountInDeck: 1,
+        async apply(player: Player, room: Room) {
+            room.showCard(this);
+            await player.choose("Vous avez Revolver des ténèbres", ["S'équiper"]);
+            room.hideCard();
+            player.equips(this, room);
+        },
+        listeners: {
+            ...emptyListener,
+            beforeAttackTargetSelection: [{
+                async call(data: BeforeAttackTargetSelectionData, room: Room, currentPlayer: Player, holder: Player) {
+                    if(currentPlayer === holder) {
+                        const targets = room.players.filter(p => p.character)
+                            .filter(p => p !== currentPlayer)
+                            .filter(p => !p.character.dead)
+                            .filter(p => !room.areNextTo(currentPlayer, p));
+                        if(data.targets.indexOf(null) !== -1)
+                            targets.push(null);
+                        data.targets = targets;
+                        return data;
+                    }
+                    return data;
+                },
+                priority: 0
+            }]
+        }
+    },
+    {
+        name: "Sabre hanté Masamune",
+        color: CardColor.Black,
+        description: "Vous êtes obligé d'attaquer durant votre tour. Lancez uniquement le dé à 4 faces, le résultat indique les Blessures que vous infligez.",
+        amountInDeck: 1,
+        async apply(player: Player, room: Room) {
+            room.showCard(this);
+            await player.choose("Vous avez Sabre hanté Masamune", ["S'équiper"]);
+            room.hideCard();
+            player.equips(this, room);
+        },
+        listeners: {
+            ...emptyListener,
+            beforeAttackTargetSelection: [{
+                async call(data: BeforeAttackTargetSelectionData, room: Room, currentPlayer: Player, holder: Player) {
+                    if(currentPlayer === holder) {
+                        const nullIdx = data.targets.indexOf(null);
+                        if(nullIdx !== -1 && data.targets.length > 1)
+                            data.targets.splice(nullIdx, 1);
+                    }
+                    return data;
+                },
+                priority: 0
+            }],
+            beforeAttackDice: [{
+                async call(data: BeforeAttackDiceData, room: Room, currentPlayer: Player, holder: Player) {
+                    if(currentPlayer === holder) {
+                        data.dice = new DiceThrower4(room, holder);
+                    }
+                    return data;
+                },
+                priority: 0
+            }]
+        }
+    },
 
     {
         name: "Lance de Longinus",
         color: CardColor.White,
         description: "Si vous êtes un hunter et que votre identité est révélée, chaque fois qu'une de vos attaques inflige des Blessures, vous infligez 2 Blessures supplémentaires.",
         amountInDeck: 1,
-        async apply(player: Player, room: Room) { player.equips(this, room); },
+        async apply(player: Player, room: Room) {
+            room.showCard(this);
+            await player.choose("Vous avez Lance de Longinus", ["S'équiper"]);
+            room.hideCard();
+            player.equips(this, room);
+        },
         listeners: {
             ...emptyListener,
             beforeAttack: [{
@@ -188,19 +332,81 @@ const equipments: Array<ServerEquipment> = [
 
 const otherCards: Array<ServerCard> = [
     {
+        name: "Araignée sanguinaire",
+        color: CardColor.Black,
+        description: "Vous infligez 2 Blessures au personnage de votre choix, puis vous subissez vous-même 2 Blessures.",
+        amountInDeck: 1,
+        async apply(player: Player, room: Room) {
+            room.showCard(this);
+            const targets = room.players.filter(p => p.character && !p.character.dead);
+            const target = await player.choosePlayer("Qui sera attaqué par l'araignée sanguinaire ?", targets);
+            room.hideCard();
+            await room.attackPlayer(player, target, 2, 'araigneesanguinaire');
+            await room.attackPlayer(player, player, 2, 'araigneesanguinaire');
+            room.discardCard(this);
+        }
+    },
+    {
+        name: "Chauve-souris vampire",
+        color: CardColor.Black,
+        description: "Infligez 2 Blessures au joueur de votre choix puis soignez une de vos Blessures.",
+        amountInDeck: 3,
+        async apply(player: Player, room: Room) {
+            room.showCard(this);
+            const targets = room.players.filter(p => p.character && !p.character.dead);
+            const target = await player.choosePlayer("Qui sera attaqué par la chauve-souris vampire ?", targets);
+            room.hideCard();
+            await room.attackPlayer(player, target, 2, 'chauvesourisvampire');
+            await room.healPlayer(player, 1);
+            room.discardCard(this);
+        }
+    },
+    // {
+    //     name: "Dynamite",
+    //     color: CardColor.Black,
+    //     description: "Lancez les 2 dés et infligez 3 Blessures à tous les joueurs (vous compris) se trouvant dans le secteur désigné par le total des 2 dés. Il ne se passe rien si ce total est 7.",
+    //     amountInDeck: 1,
+    //     async apply(player: Player, room: Room) {
+    //         room.showCard(this);
+    //         await player.choose("Quel secteur faire exploser ?", ["Lancer les dés"]);
+    //         room.hideCard();
+    //         const res = room.addDices(player);
+    //         const targetedLocation = room.board.locations.find(loc => loc.numbers.includes(res.finalValue()));
+    //         const locIdx = room.board.locations.findIndex(loc => loc.name === targetedLocation.name);
+    //         const otherIdx = Math.floor(locIdx / 2) * 2 + 1 - locIdx % 2;
+    //         const otherLocation = room.board.locations[otherIdx];
+    //         room.discardCard(this);
+    //     }
+    // }
+
+    {
         name: "Premiers Secours",
         color: CardColor.White,
         description: "Placez le marqueur de Blessures du joueur de votre choix (y compris vous) sur le 7.",
         amountInDeck: 1,
         async apply(player: Player, room: Room) {
+            room.showCard(this);
             const target = await player.choosePlayer("Sur qui utiliser le Premiers Secours ?", room.players.filter(p => p.character && !p.character.dead));
+            room.hideCard();
             room.sendMessage("{0:player} utilise les {1:card} sur {2:player}", player.serialize(), this, target.serialize());
             await room.setPlayerHP(target, 7);
             room.discardCard(this);
         }
     },
-    makeVision("Vision clairvoyante", "Je pense que tu es un personnage de 11 points de vie ou moins. Si c'est le cas, subis 1 Blessure.", 1, (c: Character) => c.hp <= 11, VisionAction.Hit),
-    makeVision("Vision cupide", "Je pense que tu es Neutre ou Shadow. Si c'est le cas tu dois : soit me donner un équipement soit subir 1 Blessure.", 1, (c: Character) => c.faction === Faction.Neutral || c.faction === Faction.Shadow, VisionAction.Steal)
+
+
+    makeVision("Vision clairvoyante", "Je pense que tu es un personnage de 11 Points de Vie ou moins. Si c'est le cas, subis 1 Blessure !", 1, (c: Character) => c.hp <= 11, VisionAction.Hit),
+    makeVision("Vision cupide", "Je pense que tu es Neutre ou Shadow. Si c'est le cas tu dois : soit me donner un équipement soit subir 1 Blessure !", 1, (c: Character) => c.faction === Faction.Neutral || c.faction === Faction.Shadow, VisionAction.Steal),
+    makeVision("Vision mortifère", "Je pense que tu es Hunter. Si c'est le cas, subis 1 Blessure !", 1, (c: Character) => c.faction === Faction.Hunter, VisionAction.Hit),
+    makeVision("Vision réconfortante", "Je pense que tu es Neutre. Si c'est le cas, soigne 1 Blessure. (Toutefois, si tu n'avais aucune blessure, subis 1 Blessure !)", 1, (c: Character) => c.faction === Faction.Neutral, VisionAction.Heal),
+    makeVision("Vision furtive", "Je pense que tu es Hunter ou Shadow. Si c'est le cas, tu dois : soit me donner une carte équipement, soit subir 1 Blessure.", 2, (c: Character) => c.faction === Faction.Hunter || c.faction === Faction.Shadow, VisionAction.Steal),
+    makeVision("Vision destructrice", "Je pense que tu es un personnage de 12 Points de Vie ou plus. Si c'est le cas, subis 2 Blessures !", 1, (c: Character) => c.hp >= 12, VisionAction.HitStrong),
+    makeVision("Vision enivrante", "Je pense que tu es Neutre ou Hunter. Si c'est le cas, tu dois : soit me donner une carte équipement, soit subir 1 Blessure.", 2, (c: Character) => c.faction === Faction.Neutral || c.faction === Faction.Hunter, VisionAction.Steal),
+    makeVision("Vision lugubre", "Je pense que tu es Shadow. Si c'est le cas, soigne 1 Blessure. (Toutefois, si tu n'avais aucune blessure, subis 1 Blessure !)", 1, (c: Character) => c.faction === Faction.Shadow, VisionAction.Heal),
+    makeVision("Vision divine", "Je pense que tu es Hunter. Si c'est le cas, soigne 1 Blessure. (Toutefois si tu n'avais aucune blessure, subis 1 Blessure !)", 1, (c: Character) => c.faction === Faction.Hunter, VisionAction.Heal),
+    makeVision("Vision purificatrice", "Je pense que tu es Shadow. Si c'est le cas, subis 2 Blessures", 1, (c: Character) => c.faction === Faction.Shadow, VisionAction.HitStrong),
+    makeVision("Vision foudroyante", "Je pense que tu es Shadow. Si c'est le cas, subis 1 BLessure !", 1, (c: Character) => c.faction === Faction.Shadow, VisionAction.Hit),
+    // TODO Vision suprême
 ];
 
 export const cards: Array<ServerCard> = otherCards.concat(equipments);
