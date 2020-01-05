@@ -530,7 +530,7 @@ const otherCards: Array<ServerCard> = [
         async apply(player: Player, room: Room) {
             room.showCard(this);
             if(player.character.equipment.length > 0) {
-                const equip = await player.choose("Quel équipement donner ?", player.character.equipment.map(e => { return { target: player.serialize(), equipment: e}; }));
+                const equip = await player.choose("Quel équipement donner ?", player.character.equipment.map(e => { return { target: player.serialize(), equipment: e}; }), 'playerequipment');
                 const targets = room.players.filter(p => p.character && !p.character.dead && p.name !== player.name);
                 const target = await player.choosePlayer("À qui donner l'équipement ?", targets);
                 room.stealEquipment(player, target, player.character.equipment.find(e => e.name === equip.equipment.name) as ServerEquipment);
@@ -675,7 +675,7 @@ const otherCards: Array<ServerCard> = [
         async apply(player: Player, room: Room) {
             room.showCard(this);
             const targets = room.players.filter(p => p.character && !p.character.dead && p.name !== player.name);
-            const target = await player.choose("Qui bénir ?", targets);
+            const target = await player.choosePlayer("Qui bénir ?", targets);
             room.sendMessage("{0:player} offre sa bénédiction à {1:player}", player.serialize(), target.serialize());
             const result = room.d6(player);
             await room.healPlayer(target, result.finalValue());
