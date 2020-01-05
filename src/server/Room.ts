@@ -4,7 +4,7 @@ import {Namespace, Server, Socket} from "socket.io";
 import {Character, Faction} from "../common/Game/Character";
 import {characters} from "./Data/Characters";
 import {Card, CardColor, CharacterState, Equipment} from "../common/Game/CharacterState";
-import {AfterAttackData, BeforeAttackData, Listeners, TurnListener, TurnManager} from "./TurnManager";
+import {AfterAttackData, BeforeAttackData, DeathData, Listeners, TurnListener, TurnManager} from "./TurnManager";
 import {ServerPower} from "./Data/Powers";
 import {ServerCard, ServerDeck, ServerEquipment} from "./Data/Cards";
 import {AddDices, Dice4, Dice6, SubtractDices} from "../common/Event/DiceResult";
@@ -369,6 +369,24 @@ export class Room {
                 target: target.serialize(),
                 killer: attacker.serialize()
             }));
+            let data = new DeathData(target, attacker, type);
+            data = await this.invokeListener(data, attacker, (l: Listeners) => l.onDeath);
+            if(target.character.equipment.length > 0) {
+                const equips = target.character.equipment.map(e => { return {
+                    target: target.serialize(),
+                    equipment: e
+                };});
+                const equip = await attacker.choose('Quel équipement récupérer ?', equips, 'playerequipment');
+                this.stealEquipment(target, attacker, target.character.equipment.find(e => e.name === equip.equipment.name));
+                if(target.character.equipment.length > 0) {
+                    this.sendMessage('Les équipements restants de {0:player} sont abandonnés', target.serialize());
+                    while(target.character.equipment.length > 0) {
+                        const equip = target.character.equipment[0];
+                        target.desequips(equip as ServerEquipment, this);
+                        this.discardCard(equip);
+                    }
+                }
+            }
         }
     }
 
