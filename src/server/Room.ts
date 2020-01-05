@@ -188,7 +188,7 @@ export class Room {
     private generateComposition(extension: boolean): Array<Character> {
         const hunters = characters.filter(c => c.faction === Faction.Hunter);
         const shadows = characters.filter(c => c.faction === Faction.Shadow);
-        const neutrals = characters.filter(c => c.faction === Faction.Neutral).filter(c => c.name === 'Allie');
+        const neutrals = characters.filter(c => c.faction === Faction.Neutral);
 
         let amountShadowHunter = 0;
         let amountNeutral = 0;
@@ -213,6 +213,14 @@ export class Room {
                 amountNeutral = 2;
                 amountShadowHunter = 2;
                 break;
+            case 7:
+                amountNeutral = 3;
+                amountShadowHunter = 2;
+                break;
+            case 8:
+                amountNeutral = 2;
+                amountShadowHunter = 3;
+                break;
             case 1:
                 throw new Error('Il faut plus d\'un joueur pour commencer une partie')
             default:
@@ -232,6 +240,7 @@ export class Room {
             const neutralIdx = randomInt(0, neutrals.length);
             charas.push(neutrals[neutralIdx]);
             neutrals.splice(neutralIdx, 1);
+            console.log(neutrals[neutralIdx]);
         }
 
         return charas;

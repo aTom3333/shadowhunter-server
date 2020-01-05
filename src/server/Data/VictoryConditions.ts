@@ -171,11 +171,11 @@ export const victoryConditions: {
         }
     },
     shadow: {
-        description: "Tous les personnages Hunter sont morts OU tous les personnages neutres sont morts.",
+        description: "Tous les personnages Hunter sont morts OU au moins 3 personnages Neutres sont morts.",
         isFulfilled(room: Room, self: Player) {
             const board = room.board;
             const state = self.character;
-            return (board.states.filter(c => !c.dead && c.identity.faction === Faction.Neutral).length === 0 && board.states.filter(c => c.identity.faction === Faction.Neutral).length !== 0)
+            return (board.states.filter(c => c.dead && c.identity.faction === Faction.Neutral).length >= 3)
                 || board.states.filter(c => !c.dead && c.identity.faction === Faction.Hunter).length === 0;
         }
     }

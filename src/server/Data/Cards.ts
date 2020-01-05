@@ -648,7 +648,7 @@ const otherCards: Array<ServerCard> = [
     {
         name: "Barre de chocolat",
         color: CardColor.White,
-        description: "Si vous êts un Hunter, vous pouvez révéler votre identité. Si vous le faites, ou si vous avez déjà révélé votre identité, vous soignez toutes vos Blessures.",
+        description: "Si vous êtes Allie, Agnès, Emi, Ellen, Momie ou Métamorphe et que vous choisissez de révéler (ou avez déjà révélé) votre identité, vous soignez toutes vos Blessures.",
         amountInDeck: 1,
         async apply(player: Player, room: Room) {
             room.showCard(this);
@@ -738,7 +738,7 @@ const otherCards: Array<ServerCard> = [
     makeVision("Vision lugubre", "Je pense que tu es Shadow. Si c'est le cas, soigne 1 Blessure. (Toutefois, si tu n'avais aucune blessure, subis 1 Blessure !)", 1, (c: Character) => c.faction === Faction.Shadow, VisionAction.Heal),
     makeVision("Vision divine", "Je pense que tu es Hunter. Si c'est le cas, soigne 1 Blessure. (Toutefois si tu n'avais aucune blessure, subis 1 Blessure !)", 1, (c: Character) => c.faction === Faction.Hunter, VisionAction.Heal),
     makeVision("Vision purificatrice", "Je pense que tu es Shadow. Si c'est le cas, subis 2 Blessures", 1, (c: Character) => c.faction === Faction.Shadow, VisionAction.HitStrong),
-    makeVision("Vision foudroyante", "Je pense que tu es Shadow. Si c'est le cas, subis 1 BLessure !", 1, (c: Character) => c.faction === Faction.Shadow, VisionAction.Hit),
+    makeVision("Vision foudroyante", "Je pense que tu es Shadow. Si c'est le cas, subis 1 Blessure !", 1, (c: Character) => c.faction === Faction.Shadow, VisionAction.Hit),
     // TODO Vision suprême
 ];
 

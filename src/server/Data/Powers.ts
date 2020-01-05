@@ -142,7 +142,7 @@ export const powers: {
                         room.usePower(self);
 
                         room.getRoomNamespace().emit(Update.ChangeHP.stub, Update.ChangeHP({
-                            player: self,
+                            player: self.serialize(),
                             type: '=',
                             amount: 0
                         }));
