@@ -181,9 +181,11 @@ export const powers: {
             onDeath: [{
                 async call(data: DeathData, room: Room, current: Player, self: Player) {
                     if(self === data.killer) {
-                        await self.choose("C'est l'heure du braquage !", ['Prendre tous les équipements']);
-                        while(data.target.character.equipment.length > 0)
-                            await room.stealEquipment(data.target, self, data.target.character.equipment[0])
+                        if(self.character.revealed || await self.askYesNo("Utiliser votre pouvoir ?")) {
+                            await self.choose("C'est l'heure du braquage !", ['Prendre tous les équipements']);
+                            while (data.target.character.equipment.length > 0)
+                                await room.stealEquipment(data.target, self, data.target.character.equipment[0])
+                        }
                     }
                     return data;
                 },

@@ -5,7 +5,7 @@ import {
     BeforeAttackData,
     BeforeAttackDiceData,
     BeforeAttackTargetSelectionData,
-    BeforeMoveData,
+    BeforeMoveData, DeathData,
     DiceThrower4,
     emptyListener,
     Listeners,
@@ -425,7 +425,18 @@ const equipments: Array<ServerEquipment> = [
             player.equips(this, room);
         },
         listeners: {
-            ...emptyListener // TODO Implement
+            ...emptyListener,
+            onDeath: [{
+                async call(data: DeathData, room: Room, current: Player, self: Player) {
+                    if(self === data.killer) {
+                        await self.choose("Récupérer les équipements", ['Prendre tous les équipements']);
+                        while(data.target.character.equipment.length > 0)
+                            await room.stealEquipment(data.target, self, data.target.character.equipment[0])
+                    }
+                    return data;
+                },
+                priority: 0
+            }]
         }
     },
     {
