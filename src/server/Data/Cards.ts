@@ -599,8 +599,8 @@ const otherCards: Array<ServerCard> = [
             });
             possibilites.push(null);
             const target = await player.choose("Quel équipement voler ?", possibilites, 'playerequipment');
-            const targetedPlayer = room.players.find(p => p.name === target.target.name);
             if(target !== null) {
+                const targetedPlayer = room.players.find(p => p.name === target.target.name);
                 await room.stealEquipment(targetedPlayer, player, target.equipment);
             }
             room.hideCard();

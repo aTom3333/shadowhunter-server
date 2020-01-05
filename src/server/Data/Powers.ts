@@ -628,7 +628,7 @@ export const powers: {
                     if(self.character.dead)
                         return;
 
-                    const targets = room.players.filter(p => p.character && !p.character.dead && p.character.location.name === "Porte de l'outremonde");
+                    const targets = room.players.filter(p => p.character && !p.character.dead && p.character.location && p.character.location.name === "Porte de l'outremonde");
 
                     if(targets.length > 0 && await self.askYesNo('Utiliser votre pouvoir ?')) {
                         if(!self.character.revealed)
@@ -657,9 +657,14 @@ export const powers: {
         listeners: {
             ...emptyListener,
             beforeAttackDice: [{
-                async call(data: BeforeAttackDiceData, room: Room, currentPlayer: Player, holder: Player) {
-                    if(currentPlayer === holder) {
-                        data.dice = new DiceThrower4(room, holder);
+                async call(data: BeforeAttackDiceData, room: Room, currentPlayer: Player, self: Player) {
+                    if(currentPlayer === self) {
+                        if(self.character.revealed || await self.askYesNo('Utiliser votre pouvoir ?')) {
+                            if(!self.character.revealed)
+                                room.revealPlayer(self);
+
+                            data.dice = new DiceThrower4(room, self);
+                        }
                     }
                     return data;
                 },
