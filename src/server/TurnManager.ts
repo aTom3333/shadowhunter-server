@@ -112,6 +112,18 @@ export class AfterAttackData {
     }
 }
 
+export class DeathData {
+    target: Player;
+    killer: Player;
+    type: string;
+
+    constructor(target: Player, killer: Player, type: string) {
+        this.target = target;
+        this.killer = killer;
+        this.type = type;
+    }
+}
+
 export function isTargeted(player: Player, target: Target) {
     if(target instanceof Player)
         return player === target;
@@ -145,6 +157,7 @@ export interface Listeners {
     beforeAttack: Array<TurnListener<BeforeAttackData>>;
     afterAttack: Array<TurnListener<AfterAttackData>>;
     end: Array<TurnListener<void>>;
+    onDeath: Array<TurnListener<DeathData>>;
 }
 
 export const emptyListener: Listeners = {
@@ -162,6 +175,7 @@ export const emptyListener: Listeners = {
     beforeAttack: [],
     afterAttack: [],
     end: [],
+    onDeath: []
 };
 
 
